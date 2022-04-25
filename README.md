@@ -25,7 +25,7 @@ We trained our models on a scientific workstation with 24 logical cores, 128GB o
 Coming soon.
 
 ### Visualization
-We used [Grad-CAM](https://arxiv.org/abs/1610.02391) to create heatmaps that show where the models think there are abnormalities in the x-rays. See below for exmaples of heatmaps for true-positive predictions on images from the NIH dataset (i.e., abnormal x-rays the model correctly labeled as abnormal), made with [grad-cam.py](grad-cam.py). 
+We used [Grad-CAM](https://arxiv.org/abs/1610.02391) to create heatmaps that show where the models think there are abnormalities in the x-rays. See below for exmaples of heatmaps for the model's predictions on true abnormal x-rays, made with [heatmaps.py](heatmaps.py). 
 
 ![grad cam](img/composite.png)
 
