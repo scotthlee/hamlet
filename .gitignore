@@ -1,0 +1,4 @@
+*.pyc
+**/binary/checkpoints/
+**/multilabel/checkpoints/
+.DS_Store
