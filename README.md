@@ -1,12 +1,10 @@
 # Harnessing Machine Learning to Eliminate Tuberculosis (HaMLET)
 
 ## Overview
-This repository holds code for the HaMLET project, an internal CDC effort to use computer vision models to improve the quality of overseas health screenings for immigrants and refugees seeking entry to the U.S.. The project is the result of a collaboration between the Immigrant, Migrant, and Refugee Health Branch ([IMRHB](https://www.cdc.gov/ncezid/dgmq/focus-areas/irmh.html)) in the Division of Global Migration and Quarantine([DGMQ](https://www.cdc.gov/ncezid/dgmq/index.html)) and the Office of the Director in the Center for Surveillance, Epidemiology, and Laboratory Services ([CSELS](https://www.cdc.gov/csels/index.html)).
+This project holds code for doing stuff with x-rays.
 
 ## Data
-We had about 200,000 x-rays to work with for the entire project. For model training, we used about 110,000 x-rays, with labels coming from the primary reads by radiologists at the original screening sites. For validation and testing, we used about 16,000 x-rays, with labels coming from (often secondary) reads by radiologists from a small number of panel sites with large screening programs. All x-rays were collected as part of routine medical screenings for immigrants and refugees seeking entry to the U.S., which CDC helps to administer in collaboration with the Department of State (click [here](https://www.cdc.gov/immigrantrefugeehealth/about/medical-exam-faqs.html) to learn more about the screening program).
-
-Our main goal was to pilot models for itnernal quality control, but as a sanity check, we also evaluated on our model existing openly-available chest x-ray datasets, including the Shenzhen and Montgomery County TB datsets, made available by the [National Library of Medicine](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC4256233/), and the [NIH chest x-ray dataset](https://www.nih.gov/news-events/news-releases/nih-clinical-center-provides-one-largest-publicly-available-chest-x-ray-datasets-scientific-community). For the latter, we used additional expert labels for the test data provided by [Google](https://cloud.google.com/healthcare-api/docs/resources/public-datasets/nih-chest) as part of their research efforts.
+We trained our models on x-rays collected from places that do x-rays.
 
 ## Methods
 ### Tasks
@@ -15,8 +13,6 @@ The project centers on three main tasks:
 1. Determining whether an x-ray is normal or abnormal (binary classification);
 2. Determining whether an x-ray contains abnormalities suggestive of TB (multilabel classification); and
 3. Localizing abnormalities in x-rays when they exist (object detection/image segmentation).
-
-The use case for each of these is internal quality control at CDC, e.g., scanning large batches of incoming files and notifying staff of potential issues with the original reads. None of our models are intended for clinical or pedagogical use.
 
 ### Architecture
 For feature extraction, we used the [EfficientNet B7](https://ai.googleblog.com/2019/05/efficientnet-improving-accuracy-and.html) architecture, pretrained on ImageNet. For each model, we changed the dimensionality and loss function of the final dense layer to match its particular classification task, and we added an optional custom [image augmentation layer](https://github.com/scotthlee/hamlet/blob/99a2606fa43446f8dcd14e4408ede285d9ade088/hamlet/modeling/models.py#L44-L90) to make agumentation tunable with [KerasTuner](https://keras.io/keras_tuner/). 
