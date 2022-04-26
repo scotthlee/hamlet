@@ -6,7 +6,7 @@ This repository holds code for the HaMLET project, an internal CDC effort to use
 ## Data
 We had about 200,000 x-rays to work with for the entire project. For model training, we used about 110,000 x-rays, with labels coming from the primary reads by radiologists at the original screening sites. For validation and testing, we used about 16,000 x-rays, with labels coming from (often secondary) reads by radiologists from a small number of panel sites with large screening programs. All x-rays were collected as part of routine medical screenings for immigrants and refugees seeking entry to the U.S., which CDC helps to administer in collaboration with the Department of State (click [here](https://www.cdc.gov/immigrantrefugeehealth/about/medical-exam-faqs.html) to learn more about the screening program).
 
-Our main goal was to pilot models for itnernal quality control, but as a sanity check, we also evaluated on our model existing openly-available chest x-ray datasets, including the Shenzhen and Montgomery County TB datsets, made available by the [National Library of Medicine](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC4256233/), and the [NIH chest x-ray dataset](https://www.nih.gov/news-events/news-releases/nih-clinical-center-provides-one-largest-publicly-available-chest-x-ray-datasets-scientific-community). For the latter, we used additional expert labels for the test data provided by [Google](https://cloud.google.com/healthcare-api/docs/resources/public-datasets/nih-chest) as part of their research efforts.
+Our main goal was to pilot models for itnernal quality control, but as a sanity check, we also evaluated on our model existing openly-available chest x-ray datasets, including the Shenzhen and Montgomery County TB datasets, made available by the [National Library of Medicine](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC4256233/), and the [NIH chest x-ray dataset](https://www.nih.gov/news-events/news-releases/nih-clinical-center-provides-one-largest-publicly-available-chest-x-ray-datasets-scientific-community). For the latter, we used additional expert labels for the test data provided by [Google](https://cloud.google.com/healthcare-api/docs/resources/public-datasets/nih-chest) as part of their research efforts.
 
 ## Methods
 ### Tasks
@@ -20,14 +20,14 @@ The project centers on three main tasks:
 For feature extraction, we used the [EfficientNet B7](https://ai.googleblog.com/2019/05/efficientnet-improving-accuracy-and.html) architecture, pretrained on ImageNet. For each model, we changed the dimensionality and loss function of the final dense layer to match its particular classification task, and we added an optional custom [image augmentation layer](https://github.com/scotthlee/hamlet/blob/99a2606fa43446f8dcd14e4408ede285d9ade088/hamlet/modeling/models.py#L44-L90) to make agumentation tunable with [KerasTuner](https://keras.io/keras_tuner/). 
 
 ### Hardware
-We trained our models on a scientific workstation with 24 logical cores, 128GB of ram, and a single NVIDIA TITAN X GPU (12GB memory). The relatively small amount of compute by today's standards limited the amount of experimentation and hyperparameter tuning we were able to do, and so we typically use default values for things when they're available (e.g., the learning rate for the optimizer or the random image perturbations for augmentation).
+We trained our models on a scientific workstation with 24 logical cores, 128GB of ram, and a single NVIDIA TITAN X GPU (12GB memory). The relatively small amount of compute by today's standards limited the amount of experimentation and hyperparameter tuning we were able to do, and so we typically use default values for things when they're available (e.g., the learning rate for the optimizer, or the random image perturbations for augmentation).
 
 ## Results
 ### Classification metrics
 Coming soon.
 
 ### Visualization
-We used [Grad-CAM](https://arxiv.org/abs/1610.02391) to create heatmaps that show where the models think there are abnormalities in the x-rays. See below for exmaples of heatmaps for the model's predictions on true abnormal x-rays, made with [heatmaps.py](hamlet/heatmaps.py). 
+We used [Grad-CAM](https://arxiv.org/abs/1610.02391) to create heatmaps that show where the models think there are abnormalities in the x-rays. See below for examples of heatmaps for the model's predictions on true abnormal x-rays, made with [heatmaps.py](hamlet/heatmaps.py). 
 
 ![grad cam](img/composite.png)
 
@@ -38,12 +38,12 @@ Coming soon.
 
 ## Related documents
 
-* [Open Practices](open_practices.md)
-* [Rules of Behavior](rules_of_behavior.md)
-* [Thanks and Acknowledgements](thanks.md)
-* [Disclaimer](DISCLAIMER.md)
-* [Contribution Notice](CONTRIBUTING.md)
-* [Code of Conduct](code-of-conduct.md)
+* [Open Practices](doc/open_practices.md)
+* [Rules of Behavior](doc/rules_of_behavior.md)
+* [Thanks and Acknowledgements](doc/thanks.md)
+* [Disclaimer](doc/DISCLAIMER.md)
+* [Contribution Notice](doc/CONTRIBUTING.md)
+* [Code of Conduct](doc/code-of-conduct.md)
 
 ## Public Domain Standard Notice
 This repository constitutes a work of the United States Government and is not
