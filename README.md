@@ -31,7 +31,7 @@ We used [Grad-CAM](https://arxiv.org/abs/1610.02391) to create heatmaps that sho
 
 ![grad cam](img/composite.png)
 
-Grad-CAM often highlights parts of the iamge that wouldn't be important for making a dignosis--that is, it's not very specific as an abnormality localizer--but it does tend to capture the abnormalities when they're there. We hope to add other visualization methods soon. 
+Grad-CAM often highlights parts of the image that wouldn't be important for making a dignosis--that is, it's not very specific as an abnormality localizer--but it does tend to capture the abnormalities when they're there. We hope to add other visualization methods soon. 
 
 ### Embedding explorer
 Coming soon.
