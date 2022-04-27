@@ -49,6 +49,12 @@ if __name__ == '__main__':
                         default=600,
                         help='How wide the model expects the image to be. Must \
                         match the dims for the checkpoint in --mod_dir.')
+    parser.add_argument('--write_original',
+                        type=str,
+                        default=True,
+                        help='Whether to rewrite the original images to \
+                        out_dir, only at the smaller size, if any rescaling \
+                        was done.')
     parser.set_defaults(augment=False)
     args = parser.parse_args()
     
@@ -57,6 +63,7 @@ if __name__ == '__main__':
     NUM_CLASSES = args.num_classes
     AUGMENT = args.augment
     MULTI_TYPE = args.multi_type
+    WRITE_ORIGINAL = args.write_original
     IMG_HEIGHT, IMG_WIDTH = args.img_width, args.img_width
     
     if args.out_dir:
@@ -81,4 +88,5 @@ if __name__ == '__main__':
                       img_dir=IMG_DIR, 
                       out_dir=OUT_DIR, 
                       model=model,
-                      conv_layer=last_conv_layer_name)
+                      conv_layer=last_conv_layer_name,
+                      write_original=WRITE_ORIGINAL)

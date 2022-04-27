@@ -10,28 +10,14 @@ Notes:
 '''
 
 import numpy as np
-import pandas as pd
 import os
 import argparse
-import cv2
 import tensorflow as tf
 
 from multiprocessing import Pool
-from tensorflow.keras import backend as K
-from tensorflow.keras import layers
 
-
-from .modeling import models
-
-
-def flip_image(img_name, img_dir):
-    """Opens an image, inverts it, and overwrites the original file 
-    with the new version.
-    """
-    img = cv2.imread(IMG_DIR + img_name)
-    inv_img = np.invert(img)
-    cv2.imwrite(IMG_DIR + img_name, inv_img)
-    return
+from modeling import models
+from tools.image import flip_image
 
 
 if __name__ == '__main__':

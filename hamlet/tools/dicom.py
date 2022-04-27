@@ -1,4 +1,3 @@
-"""Batch converts the images in DICOM files to .png."""
 import numpy as np
 import scipy as sp
 import argparse
@@ -42,57 +41,6 @@ def good_dicom(ds):
         return False
     else:
         return True
-
-
-def good_brightness(img,
-                    min=50,
-                    max=215):
-    """Checks if an image is either too bright or too dark."""
-    if int(img.mean()) not in np.arange(min, max):
-        return False
-    else:
-        return True
-
-
-def trim(im):
-    """Trims a solid border from an image.
-    
-    Parameters
-    ----------
-    im : NumPy array
-        Image to be trimmed.
-    
-    Returns
-    ----------
-    The image without the border.
-    """
-    bg = Image.new(im.mode, im.size, im.getpixel((0,0)))
-    diff = ImageChops.difference(im, bg)
-    diff = ImageChops.add(diff, diff)
-    bbox = diff.getbbox()
-    if bbox:
-        return im.crop(bbox)
-    else:
-        return im
-
-
-def rescale(image, new_max=255):
-    """Rescales pixel values so they fall between 0 and a new max.
-    
-    Parameters
-    ----------
-    image : array
-        The pixel array to be rescaled.
-    new_max : int, default=255
-        The maximum pixel value for the array after rescaling.
-    
-    Returns
-    ----------
-    The rescaled image as a NumPy array.
-    """
-    adjusted = np.array(np.maximum(image, 0) / image.max())
-    scaled =  np.array(adjusted * new_max, dtype=np.uint8)
-    return scaled
 
 
 def convert_to_png(file, 
@@ -190,67 +138,3 @@ def convert_to_png(file,
             
             cv2.imwrite(img_dir + png_name, image)
         return
-
-
-if __name__ == '__main__':
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--dicom_dir',
-                        type=str,
-                        default='X:/DICOMM/Immigrant/',
-                        help='directory holding the DICOM files')
-    parser.add_argument('--img_dir',
-                        type=str,
-                        default='D:/data/hamlet/source/immigrant/',
-                        help='output directory for the image files')
-    parser.add_argument('--prefix',
-                        type=str,
-                        default='im_',
-                        help='prefix for the image file names to identify \
-                        which dataset they came from')
-    parser.add_argument('--num_files',
-                        type=int,
-                        default=-1,
-                        help='limit on number of files to process')
-    parser.add_argument('--overwrite',
-                        action='store_true')
-    parser.add_argument('--convert_PR',
-                        action='store_true')
-    parser.add_argument('--processes',
-                        type=int,
-                        default=-1,
-                        help='number of processes for the Pool')
-    parser.set_defaults(overwrite=False, 
-                        convert_PR=False)
-    args = parser.parse_args()
-    
-    PROCESSES = args.processes if args.processes != -1 else None
-    CONVERT_PR = args.convert_PR
-    NUM_FILES = args.num_files
-    DICOM_DIR = args.dicom_dir
-    IMG_DIR = args.img_dir
-    PREFIX = args.prefix
-    OVERWRITE = args.overwrite
-    
-    # Making the list of files; default is to convert new ones only
-    to_convert = [f for f in os.listdir(DICOM_DIR) if 'dcm' in f]
-    
-    if not CONVERT_PR:
-        to_convert = [f for f in to_convert if '_PR' not in f]
-    
-    if not OVERWRITE:
-        img_files = [f for f in os.listdir(IMG_DIR)]
-        img_files = [f.replace('png', 'dcm') for f in img_files]
-        to_convert = np.setdiff1d(to_convert, img_files)
-    
-    if NUM_FILES == -1:
-        NUM_FILES = len(to_convert)
-    
-    files = [f for f in to_convert][:NUM_FILES]
-    print(len(files))
-    
-    with Pool(PROCESSES) as p:
-        input = [(f, DICOM_DIR, IMG_DIR, PREFIX, 1024) for f in files]
-        output = p.starmap(convert_to_png, input)
-        p.close()
-        p.join()
-    
