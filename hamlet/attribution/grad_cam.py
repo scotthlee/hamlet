@@ -22,6 +22,7 @@ def get_img_array(img_path, size):
     return array
 
 
+
 def make_gradcam_heatmap(img_array, 
                          model, 
                          last_conv_layer_name, 

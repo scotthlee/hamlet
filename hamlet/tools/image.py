@@ -1,13 +1,16 @@
 import numpy as np
 import tensorflow as tf
+import PIL.Image
 import os
 import cv2
 import pytesseract
 
-from pytessearact import Output
+from pytesseract import Output
 from skimage import transform, exposure
 from skimage.color import rgb2gray
 from PIL import Image, ImageChops
+from matplotlib import pyplot as P
+from matplotlib import cm as cm
 
 
 def good_brightness(img,
@@ -61,11 +64,11 @@ def rescale(image, new_max=255):
     return scaled
 
 
-def image_augmentation(image,
-                       contrast=(0.5, 2.0),
-                       hue=0.1,
-                       saturation=(0.7, 1.25),
-                       brightness=0.2):
+def perturb_image(image,
+                  contrast=(0.5, 2.0),
+                  hue=0.1,
+                  saturation=(0.7, 1.25),
+                  brightness=0.2):
     """ Randomly alters the contrast, hue, saturation, and brightness of an
     input image. Mostly used for manually experimenting with augmentation
     values. For modeling, please use the Augmentation layer.
@@ -143,4 +146,71 @@ def check_text(file_path, lim=3):
         return True
     else:
         return False
+
+
+def show_image(im, title='', ax=None):
+  if ax is None:
+    P.figure()
+  P.axis('off')
+  P.imshow(im)
+  P.title(title)
+
+
+def show_grayscale_image(im, title='', ax=None):
+  if ax is None:
+    P.figure()
+  P.axis('off')
+  P.imshow(im, cmap=P.cm.gray, vmin=0, vmax=1)
+  P.title(title)
+
+
+def show_heatmap(im, title, ax=None):
+  if ax is None:
+    P.figure()
+  P.axis('off')
+  P.imshow(im, cmap='inferno')
+  P.title(title)
+
+
+def load_image(img_path, size):
+    """Loads and image from path and returns it as an array."""
+    img = tf.keras.preprocessing.image.load_img(img_path, target_size=size)
+    array = tf.keras.preprocessing.image.img_to_array(img)
+    return array
+
+
+def overlay_heatmap(img_array,
+                    heatmap,
+                    alpha=0.4,
+                    scale=True,
+                    cmap='jet',
+                    pixel_type='float',
+                    return_image=False):
+    """Lays a saliency heatmap over its original image."""
+    # Rescale heatmap to a range 0-255
+    heatmap = np.uint8(255 * heatmap)
+    
+    # Use jet colormap to colorize heatmap
+    cmap = cm.get_cmap(cmap)
+    
+    # Use RGB values of the colormap
+    colors = cmap(np.arange(256))[:, :3]
+    heatmap = colors[heatmap]
+    
+    # Create an image with RGB colorized heatmap
+    heatmap = tf.keras.preprocessing.image.array_to_img(heatmap)
+    heatmap = heatmap.resize((img_array.shape[1],
+                              img_array.shape[0]))
+    heatmap = tf.keras.preprocessing.image.img_to_array(heatmap)
+    
+    # Superimpose the heatmap on original image
+    supe_img = heatmap * alpha + img_array
+    if scale:
+        supe_img = supe_img / supe_img.max()
+    if pixel_type != 'float':
+        supe_img = np.round(supe_img * 255).astype(np.uint8)
+    if return_image:
+        supe_img = tf.keras.preprocessing.image.array_to_img(supe_img)
+    
+    return supe_img
 

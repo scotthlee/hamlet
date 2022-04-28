@@ -5,7 +5,6 @@ import pandas as pd
 import itertools
 import tensorflow as tf
 
-from tensorflow.keras.applications import EfficientNetB0, EfficientNetB7
 from tensorflow.keras import optimizers, losses, layers, Model, Sequential
 from tensorflow.keras import backend as K
 
@@ -13,8 +12,9 @@ from modeling.layers import Augmentation
 
 def EfficientNet(num_classes=1,
                 multi_type='label',
-                img_width=600,
                 img_height=600,
+                img_width=600,
+                model_flavor='EfficientNetB7',
                 n_channels=3,
                 top_drop=0.2,
                 full_model=True,
@@ -39,15 +39,17 @@ def EfficientNet(num_classes=1,
         a multiclass model. Anything other than "label" will lead to 
         multiclass.
     img_width : int, default=600
-        Width for the image after rescaling.
+        Width for the image after rescaling. Should match the dimensions 
+        expected by the model specified by model_flavor.
     img_height : int, default=600
-        Height for the image after rescaling.
+        Height for the image after rescaling. Should match the dimensions 
+        expected by the model specified by model_flavor.
+    model_flavor : kind of EfficientNet to run. Name must match the model 
+        name in tf.keras.applications.efficientnet.
     n_channels : int, default=3
         Number of color channels in the image.
     top_drop : float, default=0.2
         Probabilility parameter for the top dropout layer.
-    full_model : bool, default=True
-        Whether the model should be a B7 (True) or a B0 (False).
     augmentation : bool, default=True
         Whether the first layer of the model should be an Augmentation layer.
     flip : bool, default=True
@@ -96,15 +98,10 @@ def EfficientNet(num_classes=1,
     else:
         aug = inputs
     
-    if full_model:
-        effnet = EfficientNetB7(include_top=False,
-                                input_tensor=aug,
-                                weights='imagenet')
-    else:
-        effnet = EfficientNetB0(include_top=False,
-                                input_tensor=aug,
-                                weights='imagenet')
-    
+    effnet = getattr(tf.keras.applications.efficientnet, 
+                     model_flavor)(include_top=False,
+                                   input_tensor=aug,
+                                   weights='imagenet')
     effnet.trainable = False
     
     # Rebuilding the top layer for EfficientNet
@@ -116,7 +113,7 @@ def EfficientNet(num_classes=1,
     outputs = layers.Dense(num_classes, 
                            activation=dense_activation, 
                            name='dense')(drop)
-    model = Model(inputs, outputs, name='model')
+    model = Model(inputs, outputs, name=model_flavor)
     
     # Adding metrics and compiling
     if (num_classes > 1) and (multi_type == 'label'):
