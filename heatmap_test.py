@@ -18,17 +18,20 @@ im_paths = [im_dir + s for s in im_files]
 im = tim.load_image(im_paths[0], (600, 600))
 
 # Loading a model
-m = models.EfficientNet(num_classes=1, augmentation=False)
-m.load_weights('output/binary/checkpoints/training/')
-conv_layer = m.get_layer('top_conv')
-model = tf.keras.models.Model([m.inputs], [conv_layer.output, m.output])
-call_model_args = {'class_id': 0, 'model': model}
+model = models.EfficientNet(num_classes=1, augmentation=False)
+model.load_weights('output/binary/checkpoints/training/')
+conv_layer = model.get_layer('top_conv')
+model = tf.keras.models.Model([model.inputs], 
+                              [conv_layer.output, model.output])
+call_model_args = {'class_id': 0,
+                   'model': model}
 
 # Computing some masks
 masks = attribution.compute_masks(image=im,
-                                  model=model,
-                                  methods=['grad'],
-                                  call_model_args=call_model_args)
+                                  methods=['ig'],
+                                  xrai_mode='full',
+                                  call_model_args=call_model_args,
+                                  batch_size=1)
 
 # Plotting
-panel_plot(im, masks, 'Gradient')
+attribution.panel_plot(im, masks, 'Gradient')

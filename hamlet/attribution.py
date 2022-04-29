@@ -2,19 +2,21 @@ import numpy as np
 import tensorflow as tf
 import PIL.Image
 import saliency.core as saliency
+import numba
 import os
 
 from matplotlib import pyplot as plt
+from numba import cuda
 
-from tools import image as tim
-from modeling import models
+from .tools import image as tim
+from .modeling import models
 
 
 def call_model(images, call_model_args=None, expected_keys=None):
     """Generic function for getting predictions and gradients from a model."""
-    model = call_model_args['model']
     target_class_idx =  call_model_args['class_id']
-    images = tf.convert_to_tensor(images)
+    model = call_model_args['model']
+    images = tf.convert_to_tensor(images.round())
     with tf.GradientTape() as tape:
         if expected_keys==[saliency.base.INPUT_OUTPUT_GRADIENTS]:
             tape.watch(images)
@@ -30,14 +32,13 @@ def call_model(images, call_model_args=None, expected_keys=None):
 
 
 def compute_masks(image,
-                  model,
                   call_model_args,
                   smooth=True,
                   methods='all',
-                  xrai_method='full',
+                  xrai_mode='full',
                   batch_size=20):
     method_dict = {
-        'grad': 'GradientSaliency',
+        'gradient': 'GradientSaliency',
         'blur': 'BlurIG',
         'ig': 'IntegratedGradients',
         'gig': 'GuidedIG',
@@ -55,7 +56,7 @@ def compute_masks(image,
         mess = 'Computing masks for ' + obj_name
         print(mess)
         obj = getattr(saliency, obj_name)()
-        if obj_name in ['GradientSaliency', 'GradCam']:
+        if obj_name in ['GradientSaliency', 'GradCam', 'GuidedIG']:
             obj_masks = [obj.GetMask(image,
                                      call_model,
                                      call_model_args)]
@@ -70,14 +71,14 @@ def compute_masks(image,
                 # Separate step for XRAI to allow for full vs. fast versions of 
                 # the algorithm  
                 xrp = saliency.XRAIParameters()
-                xrp.algorithm = xrai_method
+                xrp.algorithm = xrai_mode
                 obj_masks = [obj.GetMask(image,
                                          call_model,
                                          call_model_args,
                                          extra_parameters=xrp,
                                          batch_size=batch_size)]
                 # All-white mask since XRAI doesn't do smoothing
-                obj_masks += np.zeros(obj_masks[0].shape,) + 1.0
+                obj_masks += [np.zeros(obj_masks[0].shape) + 1.0]
             else:
                 obj_masks = [obj.GetMask(image, 
                                          call_model, 
@@ -97,29 +98,39 @@ def compute_masks(image,
 
 def panel_plot(image, 
                masks, 
-               method_name):
-    # Set up matplot lib figures.
-    ROWS = 1
-    COLS = 5
-    UPSCALE_FACTOR = 20
-    plt.figure(figsize=(ROWS * UPSCALE_FACTOR, COLS * UPSCALE_FACTOR))
-    
+               method,
+               show=True,
+               save=False,
+               save_dir=None):
+    # Set up the subplots
+    fig, ax = plt.subplots(1, 5)
+        
     # Fill hte panels
-    tim.show_grayscale_image(image / 255,
-                             title='Original',
-                             ax=plt.subplot(ROWS, COLS, 1))
-    tim.show_grayscale_image(masks[0], 
-                             title=method, 
-                             ax=plt.subplot(ROWS, COLS, 2))
-    tim.show_grayscale_image(masks[1], 
-                             title=method + ' (smooth)', 
-                             ax=plt.subplot(ROWS, COLS, 3))
-    tim.show_heatmap(tim.overlay_heatmap(image, masks[0]),
-               title='Overlay',
-               ax=plt.subplot(ROWS, COLS, 4))
+    tim.show_image(image / 255,
+                   title='Original',
+                   ax=ax[0])
+    tim.show_image(masks[0],
+                   cmap='gray',
+                   title=method,
+                   ax=ax[1])
+    tim.show_image(masks[1],
+                   cmap='gray',
+                   title=method + ' (smooth)', 
+                   ax=ax[2])
+    tim.show_image(tim.overlay_heatmap(image, masks[0]),
+                   title='Overlay',
+                   ax=ax[3])
     tim.show_image(tim.overlay_heatmap(image, masks[1]),
-                     title='Overlay (Smooth)',
-                     ax=plt.subplot(ROWS, COLS, 5))
+                   title='Overlay (Smooth)',
+                   ax=ax[4])
     plt.tight_layout()
-    plt.show()
+    
+    # Plot and save
+    if save:
+        assert save_dir, 'Need a directory to save the images.'
+        plt.save(save_dir)
+    if show:
+        plt.show()
+    
+    return
 

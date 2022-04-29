@@ -9,7 +9,7 @@ from pytesseract import Output
 from skimage import transform, exposure
 from skimage.color import rgb2gray
 from PIL import Image, ImageChops
-from matplotlib import pyplot as P
+from matplotlib import pyplot as plt
 from matplotlib import cm as cm
 
 
@@ -148,29 +148,13 @@ def check_text(file_path, lim=3):
         return False
 
 
-def show_image(im, title='', ax=None):
-  if ax is None:
-    P.figure()
-  P.axis('off')
-  P.imshow(im)
-  P.title(title)
-
-
-def show_grayscale_image(im, title='', ax=None):
-  if ax is None:
-    P.figure()
-  P.axis('off')
-  P.imshow(im, cmap=P.cm.gray, vmin=0, vmax=1)
-  P.title(title)
-
-
-def show_heatmap(im, title, ax=None):
-  if ax is None:
-    P.figure()
-  P.axis('off')
-  P.imshow(im, cmap='inferno')
-  P.title(title)
-
+def show_image(im, title, cmap=None, ax=None):
+    if ax is None:
+         fig, ax = plt.subplots(1, 1)
+    ax.axis('off')
+    ax.imshow(im, cmap=cmap)
+    ax.set_title(title)
+        
 
 def load_image(img_path, size):
     """Loads and image from path and returns it as an array."""

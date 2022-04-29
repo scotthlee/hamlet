@@ -15,7 +15,7 @@ from tensorflow import keras
 from multiprocessing import Pool
 
 from hamlet.modeling import models
-from hamlet.attribution.grad_cam import *
+from hamlet import attribution
 
 
 if __name__ == '__main__':
