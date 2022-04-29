@@ -23,6 +23,8 @@ For feature extraction, we used the [EfficientNet B7](https://ai.googleblog.com/
 We trained our models on a scientific workstation with 24 logical cores, 128GB of ram, and a single NVIDIA TITAN X GPU (12GB memory). The relatively small amount of compute by today's standards limited the amount of experimentation and hyperparameter tuning we were able to do, and so we typically use default values for things when they're available (e.g., the learning rate for the optimizer, or the random image perturbations for augmentation).
 
 ## Code
+Our code falls into two categories: core Python modules with functions and classes for extracting, preprocessing, and modeling images in DICOM files; and command-line scripts that use those modules to impelment various stages of our project. Both should be reusable for other projects, but just to keep things tidy, we put the core modules in their own [package](halmet/), keeping the command-line scripts here. Read on for more information about the latter, and see the package [README](hamlet/README.MD) for info about the former.
+
 ### Image preprocessing
 For our project, all of the x-rays came in as DICOM files, and they were often a bit messy, e.g., with burned-in text on them, or or with large solid black or white borders. We used the following scripts to clean them up a bit and get them ready for modeling.
 
