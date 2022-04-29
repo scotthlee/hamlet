@@ -23,13 +23,13 @@ For feature extraction, we used the [EfficientNet B7](https://ai.googleblog.com/
 We trained our models on a scientific workstation with 24 logical cores, 128GB of ram, and a single NVIDIA TITAN X GPU (12GB memory). The relatively small amount of compute by today's standards limited the amount of experimentation and hyperparameter tuning we were able to do, and so we typically use default values for things when they're available (e.g., the learning rate for the optimizer, or the random image perturbations for augmentation).
 
 ## Code
-Our code falls into two categories: core Python modules with functions and classes for extracting, preprocessing, and modeling images in DICOM files; and command-line scripts that use those modules to impelment various stages of our project. Both should be reusable for other projects, but just to keep things tidy, we put the core modules in their own [package](halmet/), keeping the command-line scripts here. Read on for more information about the latter, and see the package [README](hamlet/README.MD) for info about the former.
+Our code falls into two categories: core Python modules with functions and classes for extracting, preprocessing, and modeling images in DICOM files; and command-line scripts that use those modules to impelment various stages of our project. Both should be reusable for other projects, but just to keep things tidy, we put the core modules in their own [package](hamlet/), keeping the command-line scripts here. Read on for more information about the latter, and see the package [README](hamlet/README.md) for info about the former.
 
 ### Image preprocessing
 For our project, all of the x-rays came in as DICOM files, and they were often a bit messy, e.g., with burned-in text on them, or or with large solid black or white borders. We used the following scripts to clean them up a bit and get them ready for modeling.
 
 1. [image_extraction.py](image_extraction.py) scans a source directory for DICOM files, extracts the files' image arrays, trims any solid borders from the images, and then saves them as `.png` files to an output directory. If your x-rays are in DICOM files, this is the place to start.
-2. [text_removal.py](text_removal.py) uses [Tesseract](https://github.com/tesseract-ocr/tesseract) to find images with burned-in metadata and move them from their source directory to a new directory. The script could also be modified to obscure text in the images rather than removing them entirely by altering the code for the [check_text()](https://github.com/scotthlee/hamlet/blob/0b86d0b79636a1a5e8f22c6fc1d5d886e4b2cfd0/hamlet/tools/image.py#L124-L145) function in `tools.image`. 
+2. [text_removal.py](text_removal.py) uses [Tesseract](https://github.com/tesseract-ocr/tesseract) to find images with burned-in metadata and move them from their source directory to a new directory. The script could also be modified to obscure text in the images rather than removing them entirely by altering the code for the [check_text()](https://github.com/scotthlee/hamlet/blob/0b86d0b79636a1a5e8f22c6fc1d5d886e4b2cfd0/hamlet/tools/image.py#L124-L145) function in `hamlet.tools.image`. 
 3. [inversion_detection.py](inversion_detection.py) uses a lightweight model (EfficientNet B0) to tell whether the colors in images have been inverted, and, if so, invert them back to normal. This is mainly useful for x-rays that have already been exported from their original DICOM files (those have a `PhotometricInterpretation` parameter that specifies inversion).
 
 ### Modeling
@@ -45,17 +45,16 @@ Data loading for `binary.py` and `multilabel.py` is handled by [tf.data](https:/
 ### Requirements
 The package was written in Python 3.8. For required dependencies, please see [requirements.txt](requirements.txt).
 
-
-## Results
-### Classification metrics
-Coming soon.
-
 ### Visualization
 We used the [saliency](https://github.com/PAIR-code/saliency) package from the [People+AI Research (PAIR)](https://github.com/PAIR-code) group at Google to make heatmaps that show where the models think there are abnormalities in the x-rays. See below for some examples of [Grad-CAM](https://arxiv.org/abs/1610.02391) heatmaps for our binary model's predictions on true abnormal x-rays. 
 
 ![grad cam](img/composite.png)
 
 Grad-CAM often highlights parts of the image that wouldn't be important for making a dignosis--that is, it's not very specific as an abnormality localizer--but it does tend to capture the abnormalities when they're there. If you're using our code for your own project, try experimenting with other saliency algorithms, like [Integrated Gradients](http://proceedings.mlr.press/v70/sundararajan17a/sundararajan17a.pdf), [Blurred Integrated Gradients](https://arxiv.org/pdf/2004.03383.pdf), and [XRAI](https://openaccess.thecvf.com/content_ICCV_2019/papers/Kapishnikov_XRAI_Better_Attributions_Through_Regions_ICCV_2019_paper.pdf). See the functions in the [attribution](hamlet/attribution.py) module for more info on how to run each method.
+
+## Results
+### Classification metrics
+Coming soon.
 
 ### Embedding explorer
 Coming soon.
