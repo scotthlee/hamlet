@@ -39,15 +39,15 @@ if __name__ == '__main__':
                         the labels.')
     parser.add_argument('--log_dir',
                         type=str,
-                        default='../output/binary/logs/',
+                        default='output/binary/logs/',
                         help='log_dir for Keras callbacks')
     parser.add_argument('--check_dir',
                         type=str,
-                        default='../output/binary/checkpoints/',
+                        default='output/binary/checkpoints/',
                         help='check_dir for Keras callbacks')
     parser.add_argument('--stats_dir',
                         type=str,
-                        default='../output/binary/stats/',
+                        default='output/binary/stats/',
                         help='Where to save the test statstics.')
     parser.add_argument('--training_type',
                         type=str,

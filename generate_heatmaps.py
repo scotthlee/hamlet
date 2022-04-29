@@ -29,7 +29,7 @@ if __name__ == '__main__':
                         help='Path for saving the heatmaps.')
     parser.add_argument('--mod_dir',
                         type=str,
-                        default='../output/binary/checkpoints/training/',
+                        default='output/binary/checkpoints/training/',
                         help='Path to the model checkpoint.')
     parser.add_argument('--num_classes',
                         type=int,

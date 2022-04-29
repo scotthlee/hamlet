@@ -34,15 +34,15 @@ if __name__ == '__main__':
                         metadata.')
     parser.add_argument('--log_dir',
                         type=str,
-                        default='../output/multilabel/logs/',
+                        default='output/multilabel/logs/',
                         help='log_dir for Keras callbacks')
     parser.add_argument('--check_dir',
                         type=str,
-                        default='../output/multilabel/checkpoints/',
+                        default='output/multilabel/checkpoints/',
                         help='check_dir for Keras callbacks')
     parser.add_argument('--stats_dir',
                         type=str,
-                        default='../output/multilabel/stats/',
+                        default='output/multilabel/stats/',
                         help='Where to save the test statstics.')
     parser.add_argument('--training_type',
                         type=str,

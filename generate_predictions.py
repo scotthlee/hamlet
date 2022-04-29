@@ -28,23 +28,23 @@ if __name__ == '__main__':
                         files. Writes to img_dir by default.')
     parser.add_argument('--bin_mod_dir',
                         type=str,
-                        default='../output/binary/checkpoints/training/',
+                        default='output/binary/checkpoints/training/',
                         help='Path to the folder holding the trained \
                         binary classification model.')
     parser.add_argument('--multi_mod_dir',
                         type=str,
-                        default='../output/multilabel/checkpoints/fine_tuning/',
+                        default='output/multilabel/checkpoints/fine_tuning/',
                         help='Path to the folder holding the trained \
                         multilabel classification model.')
     parser.add_argument('--bin_cut_csv',
                         type=str,
-                        default='../output/binary/stats/binary_stats.csv',
+                        default='output/binary/stats/binary_stats.csv',
                         help='Path to a CSV file holding the decision \
                         threshold for the abnormal/normal prediction. The \
                         column with the threshold should be named "cutpoint".')
     parser.add_argument('--multi_cut_csv',
                         type=str,
-                        default='../output/multilabel/stats/multi_stats.csv',
+                        default='output/multilabel/stats/multi_stats.csv',
                         help='Path to a CSV file holding the decision \
                         thresholds for each kind of abnormality. The column \
                         with the thresholds should be named "cutpoint", and \
