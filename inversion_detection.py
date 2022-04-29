@@ -16,8 +16,8 @@ import tensorflow as tf
 
 from multiprocessing import Pool
 
-from modeling import models
-from tools.image import flip_image
+from hamlet.modeling import models
+from hamlet.tools.image import flip_image
 
 
 if __name__ == '__main__':

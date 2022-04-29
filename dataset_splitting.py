@@ -4,7 +4,7 @@ import os
 
 from sklearn.model_selection import train_test_split
 
-from tools.generic import check_fnames, trim_zeroes
+from hamlet.tools.generic import check_fnames, trim_zeroes
 
 
 SEED = 2022

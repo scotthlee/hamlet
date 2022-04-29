@@ -10,7 +10,7 @@ import pytesseract
 from pytesseract import Output
 from multiprocessing import Pool
 
-from tools.image import checek_text
+from hamlet.tools.image import checek_text
 
 
 if __name__ == '__main__':

@@ -9,8 +9,8 @@ from tensorflow.keras import backend as K
 from tensorflow.keras import layers, callbacks
 from tensorflow.keras.preprocessing.image import ImageDataGenerator
 
-import tools.analysis as ta
-from modeling import models
+import hamlet.tools.analysis as ta
+from hamlet.modeling import models
 
 
 if __name__ == '__main__':

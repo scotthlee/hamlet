@@ -5,7 +5,7 @@ import os
 
 from multiprocessing import Pool
 
-from tools.dicom import convert_to_png
+from hamlet.tools.dicom import convert_to_png
 
 
 if __name__ == '__main__':

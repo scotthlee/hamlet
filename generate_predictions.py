@@ -11,8 +11,8 @@ import argparse
 import os
 import tensorflow as tf
 
-from modeling.models import EfficientNet
-from tools import analysis as ta
+from hamlet.modeling.models import EfficientNet
+from hamlet.tools import analysis as ta
 
 
 if __name__ == '__main__':
