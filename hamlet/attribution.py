@@ -3,6 +3,7 @@ import tensorflow as tf
 import PIL.Image
 import saliency.core as saliency
 import numba
+import gc
 import os
 
 from matplotlib import pyplot as plt
@@ -31,12 +32,27 @@ def call_model(images, call_model_args=None, expected_keys=None):
                     saliency.base.CONVOLUTION_OUTPUT_GRADIENTS: gradients}
 
 
+def xrai_percentile_mask(image, mask, level=70, scale=True):
+    """Covers up parts of the image that don't meet the specified XRAI
+    activation level.
+    """
+    out = np.array(image)
+    meets_level = mask > np.percentile(mask, level)
+    out[~meets_level] = 0
+    if scale:
+        out /= 255
+    return out
+
+
 def compute_masks(image,
                   call_model_args,
                   smooth=True,
-                  methods='all',
+                  methods=['gradient',
+                           'gradcam', 
+                           'xrai'],
                   xrai_mode='full',
-                  batch_size=20):
+                  xrai_level=70,
+                  batch_size=1):
     method_dict = {
         'gradient': 'GradientSaliency',
         'blur': 'BlurIG',
@@ -77,8 +93,10 @@ def compute_masks(image,
                                          call_model_args,
                                          extra_parameters=xrp,
                                          batch_size=batch_size)]
-                # All-white mask since XRAI doesn't do smoothing
-                obj_masks += [np.zeros(obj_masks[0].shape) + 1.0]
+                obj_masks += [xrai_percentile_mask(image=image,
+                                                   mask=obj_masks[0],
+                                                   level=xrai_level)]
+                all_masks += [obj_masks]
             else:
                 obj_masks = [obj.GetMask(image, 
                                          call_model, 
@@ -90,45 +108,64 @@ def compute_masks(image,
                                                       call_model_args,
                                                       batch_size=batch_size)]
         
-        gray_masks = [saliency.VisualizeImageGrayscale(m) for m in obj_masks]
-        all_masks += gray_masks
+        if obj_name != 'XRAI':
+            gray_masks = [saliency.VisualizeImageGrayscale(m) 
+                          for m in obj_masks]
+            all_masks += [gray_masks]
+        
+        # Free up some memory before next run; weird that this is needed, but
+        # otherwise TF throws a memory allocation error the next time the
+        # function is called.
+        gc.collect()
     
-    return all_masks
+    return all_masks, obj_names
 
 
 def panel_plot(image, 
                masks, 
-               method,
+               methods,
+               size=None,
                show=True,
                save=False,
                save_dir=None):
     # Set up the subplots
-    fig, ax = plt.subplots(1, 5)
-        
-    # Fill hte panels
-    tim.show_image(image / 255,
-                   title='Original',
-                   ax=ax[0])
-    tim.show_image(masks[0],
-                   cmap='gray',
-                   title=method,
-                   ax=ax[1])
-    tim.show_image(masks[1],
-                   cmap='gray',
-                   title=method + ' (smooth)', 
-                   ax=ax[2])
-    tim.show_image(tim.overlay_heatmap(image, masks[0]),
-                   title='Overlay',
-                   ax=ax[3])
-    tim.show_image(tim.overlay_heatmap(image, masks[1]),
-                   title='Overlay (Smooth)',
-                   ax=ax[4])
-    plt.tight_layout()
+    fig, ax = plt.subplots(len(methods), 5, sharey=True)
+    plt.subplots_adjust(wspace=0, hspace=0)
     
-    # Plot and save
-    if save:
-        assert save_dir, 'Need a directory to save the images.'
-        plt.save(save_dir)
+    for i, method in enumerate(methods):
+        to_plot = [masks[i][0], masks[i][1]]
+        # Set the panel titles and add empty subplots 
+        if method == 'XRAI':
+            shape = masks[i][0].shape
+            titles = ['XRAI', 'XRAI (Top regions)', '', '']
+            cmaps = ['gray'] * 4
+            to_plot += [np.ones(shape)] * 2
+        else:
+            titles = [method, method +' (Smooth)', 'Overlay', 
+                      'Overlay (Smooth)']
+            cmaps = ['gray', 'gray', None, None]
+            to_plot += [tim.overlay_heatmap(image, masks[i][0])]
+            to_plot += [tim.overlay_heatmap(image, masks[i][1])]
+        
+        # Draw the original image
+        if size:
+            image = image.resize(size)
+        tim.show_image(image / 255,
+                       axis_off=False,
+                       ax=ax[i, 0])
+                
+        # make xaxis invisibel
+        ax[i, 0].set_ylabel(method)
+        ax[i ,0].xaxis.set_visible(False)
+        plt.setp(ax[i, 0].spines.values(), visible=False)
+        ax[i, 0].tick_params(left=False, labelleft=False)
+        
+        # Fill in the sub panels
+        for j, mask in enumerate(to_plot):
+            tim.show_image(mask,
+                           cmap=cmaps[j],
+                           ax=ax[i, j+1])
+    plt.tight_layout()
     if show:
         plt.show()
     
