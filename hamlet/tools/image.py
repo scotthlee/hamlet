@@ -148,12 +148,20 @@ def check_text(file_path, lim=3):
         return False
 
 
-def show_image(im, title, cmap=None, ax=None):
+def show_image(im,
+               axis_off=True, 
+               title=None, 
+               cmap=None, 
+               ax=None):
     if ax is None:
          fig, ax = plt.subplots(1, 1)
-    ax.axis('off')
-    ax.imshow(im, cmap=cmap)
+    if axis_off:
+        ax.axis('off')
     ax.set_title(title)
+    if np.product(im.shape) == im.sum():
+        ax.imshow(im, cmap=cmap, vmin=0, vmax=1)
+    else:
+        ax.imshow(im, cmap=cmap)
         
 
 def load_image(img_path, size):
@@ -167,7 +175,7 @@ def overlay_heatmap(img_array,
                     heatmap,
                     alpha=0.4,
                     scale=True,
-                    cmap='jet',
+                    cmap='turbo',
                     pixel_type='float',
                     return_image=False):
     """Lays a saliency heatmap over its original image."""
