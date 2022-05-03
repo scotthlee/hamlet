@@ -1,6 +1,6 @@
 import numpy as np
 import tensorflow as tf
-import PIL.Image
+import pickle
 import saliency.core as saliency
 import os
 
@@ -15,7 +15,7 @@ from hamlet.modeling import models
 im_dir = 'img/test/'
 im_files = os.listdir(im_dir)
 im_paths = [im_dir + s for s in im_files]
-im = tim.load_image(im_paths[0], (600, 600))
+im = tim.load_image(im_paths[1], (600, 600))
 
 # Loading a model
 model = models.EfficientNet(num_classes=1, augmentation=False)
@@ -27,11 +27,12 @@ call_model_args = {'class_id': 0,
                    'model': model}
 
 # Computing some masks
-masks = attribution.compute_masks(image=im,
-                                  methods=['ig'],
-                                  xrai_mode='full',
-                                  call_model_args=call_model_args,
-                                  batch_size=1)
+test_masks, test_methods = attribution.compute_masks(image=im,
+                                           call_model_args=call_model_args,
+                                           batch_size=1)
+pickle.dump(test_masks, open('img/masks.pkl', 'wb'))
 
 # Plotting
-attribution.panel_plot(im, masks, 'Gradient')
+attribution.panel_plot(image=im, 
+                       masks=test_masks, 
+                       methods=test_methods)
