@@ -15,6 +15,13 @@ def threshold(probs, cutoff=.5):
     return np.array(probs >= cutoff).astype(np.uint8)
 
 
+def roc_to_count_diffs(sp, se, Nn, Np):
+    """Calculates the difference between true prevalence and predicted 
+    prevalence based on the model's sensitivity and specificity, and 
+    the population's true number of positives and negatives.    
+    """
+    return (1- sp)*Nn - (1 - se)*Np
+
 # Calculates McNemar's chi-squared statistic
 def mcnemar_test(true, pred, cc=True):
     cm = confusion_matrix(true, pred)
@@ -541,21 +548,35 @@ def grid_metrics(targets,
 
 def get_cutpoint(targets,
                  guesses,
-                 step=0.01,
+                 N=None,
+                 p=None,
                  out_type='dict'):
     """Returns the decision threshold for a set of predicted probabilities \
     that maximizes a particular metric relative to a set of labels.
     """
+    # Setting up the things for count_diffs
+    if not N:
+        N = len(targets)
+        p = np.sum(targets) / N
+    
+    Np = p * N
+    Nn = N - Np
+    
+    # Generating the roc curves and metrics
     roc = roc_curve(targets, guesses)
     js = roc[1] + (1 - roc[0]) - 1
     j_cut = roc[2][np.argmax(js)]
     count_diffs = (1 - roc[0]) - roc[1]
     count_cut = roc[2][np.argmin(np.abs(count_diffs))]
+    count_estim_diffs = [roc_to_count_diffs(1 - roc[0], roc[1], Nn, Np)]
+    count_estim_cut = roc[2][np.argmin(np.abs(count_estim_diffs))]
     if out_type == 'dict':
-        out = {'j': j_cut, 'count': count_cut}
+        out = {'j': j_cut, 
+               'count': count_cut, 
+               'count_estim': count_estim_cut}
     if out_type == 'df':
-        out = pd.DataFrame([j_cut, count_cut]).transpose()
-        out.columns = ['j', 'count']
+        out = pd.DataFrame([j_cut, count_cut, count_estim_cut]).transpose()
+        out.columns = ['j', 'count', 'count_estim']
     return out
 
 
@@ -576,7 +597,6 @@ def get_cutpoints(Y, Y_,
         column_names = Y.columns.values
     
     cuts = [get_cutpoint(Y[c], Y_[c],
-                         step=step, 
                          out_type=out_type) for c in column_names]
     if out_type == 'dict':
         out = dict(zip(column_names, cuts))
@@ -685,7 +705,6 @@ def write_preds(preds,
     return
 
 
-# Converts a boot_cis['cis'] object to a single row
 def merge_cis(c, round=4, mod_name=''):
     str_cis = c.round(round).astype(str)
     str_paste = pd.DataFrame(str_cis.stat + ' (' + str_cis.lower + 
