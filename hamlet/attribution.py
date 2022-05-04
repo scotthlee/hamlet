@@ -67,7 +67,6 @@ def compute_masks(image,
         obj_names = [method_dict[m] for m in methods]
     
     all_masks = []
-    # Masks for algorithms that don't compute gradients along a path
     for obj_name in obj_names:
         mess = 'Computing masks for ' + obj_name
         print(mess)
@@ -80,12 +79,8 @@ def compute_masks(image,
                 obj_masks += [obj.GetSmoothedMask(image,
                                                   call_model,
                                                   call_model_args)]
-        else:
-            # Masks for the algorithms that compute gradients along a path (and 
-            # thus take the batch_size parameter to manage memory)  
+        else: 
             if obj_name == 'XRAI':
-                # Separate step for XRAI to allow for full vs. fast versions of 
-                # the algorithm  
                 xrp = saliency.XRAIParameters()
                 xrp.algorithm = xrai_mode
                 obj_masks = [obj.GetMask(image,
@@ -107,64 +102,54 @@ def compute_masks(image,
                                                       call_model,
                                                       call_model_args,
                                                       batch_size=batch_size)]
-        
         if obj_name != 'XRAI':
             gray_masks = [saliency.VisualizeImageGrayscale(m) 
                           for m in obj_masks]
             all_masks += [gray_masks]
         
-        # Free up some memory before next run; weird that this is needed, but
-        # otherwise TF throws a memory allocation error the next time the
-        # function is called.
         gc.collect()
     
     return all_masks, obj_names
 
 
-def panel_plot(image, 
+def panel_plot_by_method(image, 
                masks, 
                methods,
                size=None,
                show=True,
                save=False,
+               overlay_cmap='jet',
                save_dir=None):
-    # Set up the subplots
-    fig, ax = plt.subplots(len(methods), 5, sharey=True)
+    fig, ax = plt.subplots(1, 5, sharey=True)
     plt.subplots_adjust(wspace=0, hspace=0)
+    to_plot = [masks[0], masks[1]]
     
-    for i, method in enumerate(methods):
-        to_plot = [masks[i][0], masks[i][1]]
-        # Set the panel titles and add empty subplots 
-        if method == 'XRAI':
-            shape = masks[i][0].shape
-            titles = ['XRAI', 'XRAI (Top regions)', '', '']
-            cmaps = ['gray'] * 4
-            to_plot += [np.ones(shape)] * 2
-        else:
-            titles = [method, method +' (Smooth)', 'Overlay', 
-                      'Overlay (Smooth)']
-            cmaps = ['gray', 'gray', None, None]
-            to_plot += [tim.overlay_heatmap(image, masks[i][0])]
-            to_plot += [tim.overlay_heatmap(image, masks[i][1])]
-        
-        # Draw the original image
-        if size:
-            image = image.resize(size)
-        tim.show_image(image / 255,
-                       axis_off=False,
-                       ax=ax[i, 0])
-                
-        # make xaxis invisibel
-        ax[i, 0].set_ylabel(method)
-        ax[i ,0].xaxis.set_visible(False)
-        plt.setp(ax[i, 0].spines.values(), visible=False)
-        ax[i, 0].tick_params(left=False, labelleft=False)
-        
-        # Fill in the sub panels
-        for j, mask in enumerate(to_plot):
-            tim.show_image(mask,
-                           cmap=cmaps[j],
-                           ax=ax[i, j+1])
+    if method == 'XRAI':
+        shape = masks[i][0].shape
+        titles = ['XRAI', 'XRAI (Top regions)', '', '']
+        cmaps = ['gray'] * 4
+        to_plot += [np.ones(shape)] * 2
+    else:
+        titles = ['Activations', 'Activations (Smooth)', 'Overlay', 
+                  'Overlay (Smooth)']
+        cmaps = ['gray', 'gray', None, None]
+        to_plot += [tim.overlay_heatmap(image, masks[0], cmap=overlay_cmap)]
+        to_plot += [tim.overlay_heatmap(image, masks[1], cmap=overlay_cmap)]
+    
+    titles = ['Original'] + titles
+    if not use_titles:
+        titles = [None] * len(titles)
+    
+    tim.show_image(image / 255,
+                   title=titles[0],
+                   ax=ax[0])
+    
+    for i, mask in enumerate(to_plot):
+        tim.show_image(mask,
+                       cmap=cmaps[i],
+                       title=titles[i+1],
+                       ax=ax[i +1])
+    
     plt.tight_layout()
     if show:
         plt.show()

@@ -28,6 +28,7 @@ call_model_args = {'class_id': 0,
 
 # Computing some masks
 test_masks, test_methods = attribution.compute_masks(image=im,
+                                                     methods='all',
                                            call_model_args=call_model_args,
                                            batch_size=1)
 pickle.dump(test_masks, open('img/masks.pkl', 'wb'))
