@@ -206,6 +206,10 @@ if __name__ == '__main__':
         val_preds = mod.predict(val_gen, verbose=1).flatten()        
         cuts = ta.get_cutpoint(val[LABEL_COL], val_preds)
         
+        # Writing the predictions
+        val['abnormal_prob'] = val_preds
+        val.to_csv(STATS_DIR + 'val_preds.csv')
+        
         # And getting the test stats
         test_preds = mod.predict(test_gen, verbose=1).flatten()
         stats = [ta.clf_metrics(test[LABEL_COL], test_preds, cuts[s])
@@ -214,3 +218,9 @@ if __name__ == '__main__':
         stats['cutpoint'] = list(cuts.values())
         stats['cutpoint_type'] = pd.Series(['j', 'counts'])
         stats.to_csv(STATS_DIR + 'binary_stats.csv', index=False)
+        
+        # Writing the test predictions
+        test['abnormal_prob'] = test_preds
+        test['abnormal_j'] = ta.threshold(test_preds, cuts['j'])
+        test['abnormal_count'] = ta.threshold(test_preds, cuts['counts'])
+        test.to_csv(STATS_DIR + 'test_preds.csv')
