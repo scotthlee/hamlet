@@ -8,9 +8,10 @@ import os
 
 from matplotlib import pyplot as plt
 from numba import cuda
+from copy import deepcopy
 
-import models
-from tools import image as tim
+from . import models
+from .tools import image as tim
 
 
 def call_model(images, call_model_args=None, expected_keys=None):
@@ -120,6 +121,7 @@ def panel_plot_by_method(image,
                save=False,
                overlay_cmap='jet',
                save_dir=None):
+    """Makes multiple heatmaps for a single image."""
     fig, ax = plt.subplots(1, 5, sharey=True)
     plt.subplots_adjust(wspace=0, hspace=0)
     to_plot = [masks[0], masks[1]]
@@ -133,8 +135,12 @@ def panel_plot_by_method(image,
         titles = ['Activations', 'Activations (Smooth)', 'Overlay', 
                   'Overlay (Smooth)']
         cmaps = ['gray', 'gray', None, None]
-        to_plot += [tim.overlay_heatmap(image, masks[0], cmap=overlay_cmap)]
-        to_plot += [tim.overlay_heatmap(image, masks[1], cmap=overlay_cmap)]
+        to_plot += [tim.overlay_heatmap(image, 
+                                        masks[0], 
+                                        cmap=overlay_cmap)]
+        to_plot += [tim.overlay_heatmap(image, 
+                                        masks[1], 
+                                        cmap=overlay_cmap)]
     
     titles = ['Original'] + titles
     if not use_titles:
@@ -156,3 +162,60 @@ def panel_plot_by_method(image,
     
     return
 
+
+def panel_plot_by_image(images,
+                        masks,
+                        method='GradCam',
+                        show=True,
+                        save=False,
+                        save_dir='img/',
+                        image_ids=None,
+                        scale=1.5,
+                        overlay_cmap='jet'):
+    """Makes a single series of heatmaps for multiple images."""
+    masks = deepcopy(masks)
+    h = len(images)
+    
+    if method == 'XRAI':
+        w = len(masks) + 1
+        fig, ax = plt.subplots(nrows=h,
+                               ncols=w,
+                               figsize=(scale * w, scale * h))
+        titles = ['XRAI', 'XRAI (Top regions)']
+        cmaps = ['gray', 'gray']
+    else:
+        w = len(masks) + 2
+        fig, ax = plt.subplots(nrows=h, 
+                               ncols=w, 
+                               figsize=(scale * w, scale * h))
+        titles = ['Activations', 'Activations (Smooth)', 
+                  'Overlay', 'Overlay (Smooth)']
+        cmaps = ['gray', 'gray', None, None]
+        for i, m in enumerate(masks):
+            m += [tim.overlay_heatmap(images[i],
+                                      m[0],
+                                      cmap=overlay_cmap)]
+            m += [tim.overlay_heatmap(images[i],
+                                      m[1],
+                                      cmap=overlay_cmap)]
+    if not image_ids:
+        image_ids = [''] * len(images)
+    
+    for i, image in enumerate(images):
+        tim.show_image(image / 255,
+                       ax=ax[i, 0])
+        for j, mask in enumerate(masks[i]):
+            tim.show_image(mask,
+                           cmap=cmaps[j],
+                           ax=ax[i, j+1])
+    
+    #for j, title in enumerate(titles):
+        #ax[j, 0].set_ylabel(title)
+    
+    plt.tight_layout()
+    plt.subplots_adjust(wspace=0, hspace=0)
+    
+    if show:
+        plt.show()
+    
+    return

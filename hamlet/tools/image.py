@@ -161,7 +161,7 @@ def show_image(im,
     if np.product(im.shape) == im.sum():
         ax.imshow(im, cmap=cmap, vmin=0, vmax=1)
     else:
-        ax.imshow(im, cmap=cmap)
+        ax.imshow(im, cmap=cmap, aspect='auto')
         
 
 def load_image(img_path, size):

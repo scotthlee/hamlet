@@ -8,7 +8,7 @@ import tensorflow as tf
 from tensorflow.keras import optimizers, losses, layers, Model, Sequential
 from tensorflow.keras import backend as K
 
-from layers import Augmentation
+from .layers import Augmentation
 
 
 def EfficientNet(num_classes=1,

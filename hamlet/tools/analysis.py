@@ -557,6 +557,7 @@ def get_cutpoint(targets,
     # Setting up the things for count_diffs
     if not N:
         N = len(targets)
+    if not p:
         p = np.sum(targets) / N
     
     Np = p * N
@@ -568,15 +569,15 @@ def get_cutpoint(targets,
     j_cut = roc[2][np.argmax(js)]
     count_diffs = (1 - roc[0]) - roc[1]
     count_cut = roc[2][np.argmin(np.abs(count_diffs))]
-    count_estim_diffs = [roc_to_count_diffs(1 - roc[0], roc[1], Nn, Np)]
-    count_estim_cut = roc[2][np.argmin(np.abs(count_estim_diffs))]
+    count_adj_diffs = [roc_to_count_diffs(1 - roc[0], roc[1], Nn, Np)]
+    count_adj_cut = roc[2][np.argmin(np.abs(count_adj_diffs))]
     if out_type == 'dict':
         out = {'j': j_cut, 
                'count': count_cut, 
-               'count_estim': count_estim_cut}
+               'count_adj': count_adj_cut}
     if out_type == 'df':
         out = pd.DataFrame([j_cut, count_cut, count_estim_cut]).transpose()
-        out.columns = ['j', 'count', 'count_estim']
+        out.columns = ['j', 'count', 'count_adj']
     return out
 
 

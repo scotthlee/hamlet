@@ -203,24 +203,25 @@ if __name__ == '__main__':
         
         # Getting the decision thresholds from the validation data
         mod.load_weights(CHECK_DIR + TEST_MOD_FOLDER)
-        val_preds = mod.predict(val_gen, verbose=1).flatten()        
-        cuts = ta.get_cutpoint(val[LABEL_COL], val_preds)
+        val_probs = mod.predict(val_gen, verbose=1).flatten()        
+        cuts = ta.get_cutpoint(val[LABEL_COL], val_probs)
         
-        # Writing the predictions
-        val['abnormal_prob'] = val_preds
-        val.to_csv(STATS_DIR + 'val_preds.csv')
-        
-        # And getting the test stats
-        test_preds = mod.predict(test_gen, verbose=1).flatten()
-        stats = [ta.clf_metrics(test[LABEL_COL], test_preds, cuts[s])
-                 for s in ['j', 'count']]
-        stats = pd.concat(stats, axis=0)
-        stats['cutpoint'] = list(cuts.values())
-        stats['cutpoint_type'] = pd.Series(['j', 'counts'])
-        stats.to_csv(STATS_DIR + 'binary_stats.csv', index=False)
+        # Writing validation the predictions
+        val['abnormal_prob'] = val_probs
+        val.to_csv(STATS_DIR + 'val_probs.csv')
         
         # Writing the test predictions
-        test['abnormal_prob'] = test_preds
-        test['abnormal_j'] = ta.threshold(test_preds, cuts['j'])
-        test['abnormal_count'] = ta.threshold(test_preds, cuts['counts'])
-        test.to_csv(STATS_DIR + 'test_preds.csv')
+        test_probs = mod.predict(test_gen, verbose=1).flatten()
+        test['abnormal_prob'] = test_probs
+        test['abnormal_j'] = ta.threshold(test_probs, cuts['j'])
+        test['abnormal_count'] = ta.threshold(test_probs, cuts['count'])
+        test['abnormal_adj'] = ta.threshold(test_probs, cuts['count_adj'])
+        test.to_csv(STATS_DIR + 'test_probs.csv')
+        
+        # And getting the test statistics
+        stats = [ta.clf_metrics(test[LABEL_COL], test_probs, cuts[s])
+                 for s in ['j', 'count', 'count_adj']]
+        stats = pd.concat(stats, axis=0)
+        stats['cutpoint'] = list(cuts.values())
+        stats['cutpoint_type'] = pd.Series(['j', 'count', 'count_adj'])
+        stats.to_csv(STATS_DIR + 'binary_stats.csv', index=False)    
