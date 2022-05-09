@@ -10,7 +10,7 @@ from tensorflow.keras import layers, callbacks
 from tensorflow.keras.preprocessing.image import ImageDataGenerator
 
 from hamlet.tools import analysis as ta
-from hamlet.modeling import models
+from hamlet import models
 
 
 if __name__ == '__main__':

@@ -14,8 +14,7 @@ import matplotlib.cm as cm
 from tensorflow import keras
 from multiprocessing import Pool
 
-from hamlet.modeling import models
-from hamlet import attribution
+from hamlet import attribution, models
 
 
 if __name__ == '__main__':

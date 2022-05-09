@@ -11,7 +11,7 @@ import argparse
 import os
 import tensorflow as tf
 
-from hamlet.modeling.models import EfficientNet
+from hamlet.models import EfficientNet
 from hamlet.tools import analysis as ta
 
 

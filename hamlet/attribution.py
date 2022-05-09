@@ -9,8 +9,8 @@ import os
 from matplotlib import pyplot as plt
 from numba import cuda
 
-from .tools import image as tim
-from .modeling import models
+import models
+from tools import image as tim
 
 
 def call_model(images, call_model_args=None, expected_keys=None):

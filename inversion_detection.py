@@ -16,7 +16,7 @@ import tensorflow as tf
 
 from multiprocessing import Pool
 
-from hamlet.modeling import models
+from hamlet import models
 from hamlet.tools.image import flip_image
 
 

@@ -6,9 +6,8 @@ import os
 
 from matplotlib import pyplot as plt
 
-from hamlet import attribution
+from hamlet import attribution, models
 from hamlet.tools import image as tim
-from hamlet.modeling import models
 
 
 # Loading some images
