@@ -52,7 +52,7 @@ We used the [saliency](https://github.com/PAIR-code/saliency) package from the [
 
 Grad-CAM often highlights parts of the image that wouldn't be important for making a dignosis--that is, it's not very specific as an abnormality localizer--but it does tend to capture the abnormalities when they're there. Trying another method, in this case [XRAI](https://openaccess.thecvf.com/content_ICCV_2019/papers/Kapishnikov_XRAI_Better_Attributions_Through_Regions_ICCV_2019_paper.pdf), gives a different look at the same three images.
 
-![XRAI](img/XRAI_panel.png)
+![XRAI](img/xrai_panel.png)
 
 If you're using our code for your own project, try experimenting with other saliency algorithms, like [Integrated Gradients](http://proceedings.mlr.press/v70/sundararajan17a/sundararajan17a.pdf) and [Blurred Integrated Gradients](https://arxiv.org/pdf/2004.03383.pdf), to see which one works best. See the functions in the [attribution](hamlet/attribution.py) module for more info on how to run each method.
 
