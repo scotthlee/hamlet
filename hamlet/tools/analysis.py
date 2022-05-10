@@ -10,21 +10,39 @@ from copy import deepcopy
 from multiprocessing import Pool
 
 
-# Quick function for thresholding probabilities
 def threshold(probs, cutoff=.5):
+    """Quick function for thresholding probabilities."""
     return np.array(probs >= cutoff).astype(np.uint8)
 
 
-def roc_to_count_diffs(sp, se, Nn, Np):
+def roc_to_count_diffs(se, sp, Nn, Np):
     """Calculates the difference between true prevalence and predicted 
     prevalence based on the model's sensitivity and specificity, and 
     the population's true number of positives and negatives.    
     """
     return (1- sp)*Nn - (1 - se)*Np
 
-# Calculates McNemar's chi-squared statistic
-def mcnemar_test(true, pred, cc=True):
-    cm = confusion_matrix(true, pred)
+
+def sesp_to_obs(se, sp, p, N=1000):
+    """Returns simulated target-prediction pairs from sensitivity, 
+    specificity, prevalence, and total N.
+    """
+    pairs = [[0, 0], [0, 1], [1, 0], [1, 1]]
+    A = sp * (1- p)
+    B = (1 - sp) * (1 - p)
+    C = (1 - se) * p
+    D = se * p
+    obs = []
+    for i, prob in enumerate([A, B, C, D]):
+        obs += [int(prob * N) * [pairs[i]]]
+    obs = pd.DataFrame(np.concatenate(obs, axis=0),
+                       columns=['y', 'yhat'])
+    return obs
+
+
+def mcnemar_test(targets, guesses, cc=True):
+    """Calculates McNemar's chi-squared statistic."""
+    cm = confusion_matrix(targets, guesses)
     b = int(cm[0, 1])
     c = int(cm[1, 0])
     if cc:
@@ -37,22 +55,21 @@ def mcnemar_test(true, pred, cc=True):
     return out
 
 
-# Calculates the Brier score for multiclass problems
-def brier_score(true, pred):
-    n_classes = len(np.unique(true))
+def brier_score(targets, guesses):
+    """Calculates Brier score for binary and multiclass problems."""
+    n_classes = len(np.unique(targets))
     if n_classes == 2:
-        pred = pred.flatten()
-        bs = np.sum((pred - true)**2) / true.shape[0]
+        guesses = guesses.flatten()
+        bs = np.sum((guesses - targets)**2) / targets.shape[0]
     else:
-        y = onehot_matrix(true)
-        row_diffs = np.diff((pred, y), axis=0)[0]
+        y = onehot_matrix(targets)
+        row_diffs = np.diff((guesses, y), axis=0)[0]
         squared_diffs = row_diffs ** 2
         row_sums = np.sum(squared_diffs, axis=1) 
         bs = row_sums.mean()
     return bs
 
 
-# Runs basic diagnostic stats on categorical predictions
 def clf_metrics(true, 
                 pred,
                 cutpoint=0.5,

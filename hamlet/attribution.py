@@ -165,24 +165,26 @@ def panel_plot_by_method(image,
 
 def panel_plot_by_image(images,
                         masks,
-                        method='GradCam',
+                        method_name='GradCam',
                         show=True,
                         save=False,
                         save_dir='img/',
                         image_ids=None,
                         scale=1.5,
+                        xrai_cmap='gray',
                         overlay_cmap='jet'):
     """Makes a single series of heatmaps for multiple images."""
     masks = deepcopy(masks)
     h = len(images)
     
-    if method == 'XRAI':
-        w = len(masks) + 1
+    # Setting up the plots differently for XRAI and everything else
+    if method_name in ['XRAI', 'xrai']:
+        w = len(masks)
         fig, ax = plt.subplots(nrows=h,
                                ncols=w,
                                figsize=(scale * w, scale * h))
         titles = ['XRAI', 'XRAI (Top regions)']
-        cmaps = ['gray', 'gray']
+        cmaps = [xrai_cmap] * 2
     else:
         w = len(masks) + 2
         fig, ax = plt.subplots(nrows=h, 
@@ -198,9 +200,8 @@ def panel_plot_by_image(images,
             m += [tim.overlay_heatmap(images[i],
                                       m[1],
                                       cmap=overlay_cmap)]
-    if not image_ids:
-        image_ids = [''] * len(images)
     
+    # Filling the plots
     for i, image in enumerate(images):
         tim.show_image(image / 255,
                        ax=ax[i, 0])
@@ -209,12 +210,18 @@ def panel_plot_by_image(images,
                            cmap=cmaps[j],
                            ax=ax[i, j+1])
     
-    #for j, title in enumerate(titles):
-        #ax[j, 0].set_ylabel(title)
+    # Setting the top titles
+    titles = ['Original'] + titles
+    for i, title in enumerate(titles):
+        ax[0, i].set_title(title)
     
+    # Adjusting space between and around the subplots    
     plt.tight_layout()
     plt.subplots_adjust(wspace=0, hspace=0)
     
+    # Plotting and saving
+    if save:
+        plt.savefig(save_dir + method_name + '_panel.png')
     if show:
         plt.show()
     

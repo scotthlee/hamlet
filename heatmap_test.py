@@ -38,7 +38,21 @@ attribution.panel_plot_by_method(image=im,
                                  masks=test_masks,
                                  methods=test_methods)
 
-# Trying a multi-image plot
+# Trying a multi-image plot, first with Grad-CAM, and then with XRAI
+test_masks = [
+    attribution.compute_masks(image,
+                              methods=['gradcam'],
+                              call_model_args=call_model_args,
+                              batch_size=1)[0]
+    for image in ims
+]
+test_masks = [m[0] for m in test_masks]
+pickle.dump(test_masks, open('img/gradcam_masks.pkl', 'wb'))
+attribution.panel_plot_by_image(images=ims[:3],
+                                masks=test_masks[:3],
+                                method_name='Grad-CAM',
+                                save=True)
+
 test_masks = [
     attribution.compute_masks(image,
                               methods=['xrai'],
@@ -51,4 +65,6 @@ test_masks = [m[0] for m in test_masks]
 pickle.dump(test_masks, open('img/xrai_masks.pkl', 'wb'))
 attribution.panel_plot_by_image(images=ims[:3],
                                 masks=test_masks[:3],
-                                method='Grad-CAM')
+                                method_name='xrai',
+                                scale=2,
+                                save=True)
