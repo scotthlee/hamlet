@@ -48,7 +48,7 @@ The package was written in Python 3.8. For required dependencies, please see [re
 ### Visualization
 We used the [saliency](https://github.com/PAIR-code/saliency) package from the [People+AI Research (PAIR)](https://github.com/PAIR-code) group at Google to make heatmaps that show where the models think there are abnormalities in the x-rays. See below for some examples of [Grad-CAM](https://arxiv.org/abs/1610.02391) heatmaps for our binary model's predictions on true abnormal x-rays. 
 
-![grad cam](img/composite.png)
+![grad cam](img/image_composite.png)
 
 Grad-CAM often highlights parts of the image that wouldn't be important for making a dignosis--that is, it's not very specific as an abnormality localizer--but it does tend to capture the abnormalities when they're there. If you're using our code for your own project, try experimenting with other saliency algorithms, like [Integrated Gradients](http://proceedings.mlr.press/v70/sundararajan17a/sundararajan17a.pdf), [Blurred Integrated Gradients](https://arxiv.org/pdf/2004.03383.pdf), and [XRAI](https://openaccess.thecvf.com/content_ICCV_2019/papers/Kapishnikov_XRAI_Better_Attributions_Through_Regions_ICCV_2019_paper.pdf). See the functions in the [attribution](hamlet/attribution.py) module for more info on how to run each method.
 
