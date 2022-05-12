@@ -43,7 +43,7 @@ Data loading for `binary.py` and `multilabel.py` is handled by [tf.data](https:/
 2. [generate_heatmaps.py](generate_heatmaps.py) generates different kinds of saliency maps for a variety of images. Right now the only method supported is Grad-CAM, but we hope to add others soon.
 
 ### Requirements
-The package was written in Python 3.8. For required dependencies, please see [requirements.txt](requirements.txt).
+The package was written in Python 3.8. For required dependencies, please see [requirements.txt](hamlet/requirements.txt).
 
 ### Visualization
 We used the [saliency](https://github.com/PAIR-code/saliency) package from the [People+AI Research (PAIR)](https://github.com/PAIR-code) group at Google to make heatmaps that show where the models think there are abnormalities in the x-rays. Here's an exampe of some [Grad-CAM](https://arxiv.org/abs/1610.02391) heatmaps for our binary model's predictions on true abnormal x-rays. 
