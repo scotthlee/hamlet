@@ -12,10 +12,11 @@ class Augmentation(layers.Layer):
     """Implements various image augmentations as a Layer."""
     def __init__(self,
                  flip=True,
-                 contrast=(0.5, 2),
-                 hue=0.1,
-                 saturation=(0.7, 1.25),
-                 brightness=0.2,
+                 contrast=(0.349, 1.346),
+                 hue=0.127,
+                 saturation=(0.382, 1.403),
+                 brightness=0.525,
+                 resize_factors=[0.7, 0.85, 1.15, 1.3],
                  **kwargs):
         """ Initializes the augmentation layer.
         
@@ -40,7 +41,8 @@ class Augmentation(layers.Layer):
         self.con = contrast
         self.hue = hue
         self.sat = saturation
-        self.bright = brightness   
+        self.bright = brightness
+        self.resize_factors = resize_factors   
     
     def call(self, input, training=None):
         if training is None:
@@ -53,7 +55,12 @@ class Augmentation(layers.Layer):
             image = tf.image.random_brightness(image, self.bright) 
             if self.flip:
                 image = tf.image.random_flip_left_right(image)
-            
+            if self.resize_factors:
+                scale = np.random.choice(self.resize_factors)
+                w, h = tf.shape(image)[1], tf.shape(image)[2]
+                image = tf.image.resize_with_crop_and_pad(image,
+                                                          w * scale,
+                                                          h * scale)                                          
             return image
         
         if training == 1:
@@ -70,6 +77,7 @@ class Augmentation(layers.Layer):
                        'contrast': self.con,
                        'hue': self.hue,
                        'saturation': self.sat,
-                       'brightness': self.bright
+                       'brightness': self.bright,
+                       'resize': self.resize_factors
         })
         return config

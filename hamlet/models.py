@@ -17,16 +17,16 @@ def EfficientNet(num_classes=1,
                 img_width=600,
                 model_flavor='EfficientNetB7',
                 n_channels=3,
-                top_drop=0.2,
-                full_model=True,
+                top_drop=0.5,
                 augmentation=False,
                 flip=True,
-                hue=0.1,
-                contrast=(0.5, 2),
-                saturation=(0.7, 1.25),
-                brightness=0.2,
+                hue=0.127,
+                contrast=(0.349, 1.346),
+                saturation=(0.382, 1.403),
+                brightness=0.525,
                 optimizer='adam',
-                learning_rate=1e-2):
+                learning_rate=1e-2,
+                effnet_trainable=False):
     """Builds EfficientNet with a custom top layer and optional augmentation.
     
     Parameters
@@ -103,7 +103,7 @@ def EfficientNet(num_classes=1,
                      model_flavor)(include_top=False,
                                    input_tensor=aug,
                                    weights='imagenet')
-    effnet.trainable = False
+    effnet.trainable = effnet_trainable
     
     # Rebuilding the top layer for EfficientNet
     pool = layers.GlobalAveragePooling2D(name='avg_pool')(effnet.output)

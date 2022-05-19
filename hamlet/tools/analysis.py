@@ -15,14 +15,6 @@ def threshold(probs, cutoff=.5):
     return np.array(probs >= cutoff).astype(np.uint8)
 
 
-def roc_to_count_diffs(se, sp, Nn, Np):
-    """Calculates the difference between true prevalence and predicted 
-    prevalence based on the model's sensitivity and specificity, and 
-    the population's true number of positives and negatives.    
-    """
-    return (1- sp)*Nn - (1 - se)*Np
-
-
 def sesp_to_obs(se, sp, p, N=1000):
     """Returns simulated target-prediction pairs from sensitivity, 
     specificity, prevalence, and total N.
@@ -410,6 +402,19 @@ def average_pvals(p_vals,
     return p_avg
 
 
+def onehot_matrix(y, sparse=False):
+    y = [s.lower() for s in y]
+    labels = set(y)
+    label_dict = dict(zip(labels, range(len(labels))))
+    label_mat = np.zeros(shape=(len(y), len(labels)))
+    for i, r in enumerate(label_mat):
+        r[label_dict[y[i]]] = 1
+    out_df = pd.DataFrame(label_mat.astype(np.uint8),
+                          columns=labels)
+    return out_df
+
+
+
 # Generates bootstrap indices of a dataset with the option
 # to stratify by one of the (binary-valued) variables
 def boot_sample(df, by=None, size=None, seed=None, return_df=False):
@@ -563,6 +568,14 @@ def grid_metrics(targets,
     return pd.concat(scores, axis=0)
 
 
+def roc_to_count_diffs(se, sp, Nn, Np):
+    """Calculates the difference between true prevalence and predicted 
+    prevalence based on the model's sensitivity and specificity, and 
+    the population's true number of positives and negatives.    
+    """
+    return np.abs((1- sp)*Nn - (1 - se)*Np)
+
+
 def get_cutpoint(targets,
                  guesses,
                  N=None,
@@ -577,16 +590,19 @@ def get_cutpoint(targets,
     if not p:
         p = np.sum(targets) / N
     
-    Np = p * N
+    Np = np.sum(targets)
     Nn = N - Np
     
     # Generating the roc curves and metrics
     roc = roc_curve(targets, guesses)
     js = roc[1] + (1 - roc[0]) - 1
     j_cut = roc[2][np.argmax(js)]
-    count_diffs = (1 - roc[0]) - roc[1]
-    count_cut = roc[2][np.argmin(np.abs(count_diffs))]
-    count_adj_diffs = [roc_to_count_diffs(1 - roc[0], roc[1], Nn, Np)]
+    count_diffs = np.abs((1 - roc[0]) - roc[1])
+    count_cut = roc[2][np.argmin(count_diffs)]
+    count_adj_diffs = [roc_to_count_diffs(sp=(1 - roc[0]),
+                                          se=roc[1], 
+                                          Nn=Nn, 
+                                          Np=Np)]
     count_adj_cut = roc[2][np.argmin(np.abs(count_adj_diffs))]
     if out_type == 'dict':
         out = {'j': j_cut, 

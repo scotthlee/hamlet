@@ -71,7 +71,9 @@ if __name__ == '__main__':
                         type=int,
                         default=32,
                         help='Minibatch size for model training and inference.')
-    parser.set_defaults(augment=False)
+    parser.add_argument('--train_all_blocks',
+                        action='store_true')
+    parser.set_defaults(augment=False, train_all_blocks=False)
     args = parser.parse_args()
     
     # Parameters
@@ -80,6 +82,7 @@ if __name__ == '__main__':
     BASE_TRAIN = args.training_type in ['base', 'both']
     FINE_TUNE = args.training_type in ['fine_tune', 'both']
     AUGMENT = args.augment
+    TRAIN_ALL_BLOCKS = args.train_all_blocks
     BATCH_SIZE = args.batch_size
     LOAD_WEIGHTS = True
     STARTING_BLOCK = 0
@@ -123,7 +126,8 @@ if __name__ == '__main__':
                               img_height=img_height,
                               img_width=img_width,
                               augmentation=AUGMENT,
-                              learning_rate=1e-3)
+                              learning_rate=1e-4,
+                              effnet_trainable=TRAIN_ALL_BLOCKS)
 
     if TRAIN:
         train_dg = ImageDataGenerator()
