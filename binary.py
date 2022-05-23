@@ -154,10 +154,11 @@ if __name__ == '__main__':
         # Setting up callbacks and metrics
         tr_callbacks = [
             callbacks.EarlyStopping(patience=1,
+                                    monitor='val_ROC_AUC',
                                     restore_best_weights=True),
             callbacks.ModelCheckpoint(filepath=CHECK_DIR + 'training/',
                                       save_weights_only=True,
-                                      monitor='val_loss',
+                                      monitor='val_ROC_AUC',
                                       save_best_only=True),
             callbacks.TensorBoard(log_dir=LOG_DIR + 'training/')
         ]
@@ -175,10 +176,11 @@ if __name__ == '__main__':
             # New callbacks for the fine-tuning phase
             ft_callbacks = [
                 callbacks.EarlyStopping(patience=1,
+                                        monitor='val_ROC_AUC',
                                         restore_best_weights=True),
                 callbacks.ModelCheckpoint(filepath=CHECK_DIR + 'fine_tuning/',
                                           save_weights_only=True,
-                                          monitor='val_loss',
+                                          monitor='val_ROC_AUC',
                                           save_best_only=True),
                 callbacks.TensorBoard(log_dir=LOG_DIR + 'fine_tuning/')
             ]

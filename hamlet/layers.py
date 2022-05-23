@@ -57,10 +57,11 @@ class Augmentation(layers.Layer):
                 image = tf.image.random_flip_left_right(image)
             if self.resize_factors:
                 scale = np.random.choice(self.resize_factors)
-                w, h = tf.shape(image)[1], tf.shape(image)[2]
+                image_dims = image.get_shape().as_list()
+                h, w = image_dims[1], image_dims[2]
                 image = tf.image.resize_with_crop_or_pad(image,
-                                                          w * scale,
-                                                          h * scale)                                          
+                                                          int(h * scale),
+                                                          int(w * scale))                                          
             return image
         
         if training == 1:
