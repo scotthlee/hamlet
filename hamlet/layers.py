@@ -58,7 +58,7 @@ class Augmentation(layers.Layer):
             if self.resize_factors:
                 scale = np.random.choice(self.resize_factors)
                 w, h = tf.shape(image)[1], tf.shape(image)[2]
-                image = tf.image.resize_with_crop_and_pad(image,
+                image = tf.image.resize_with_crop_or_pad(image,
                                                           w * scale,
                                                           h * scale)                                          
             return image

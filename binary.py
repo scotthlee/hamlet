@@ -71,9 +71,18 @@ if __name__ == '__main__':
                         type=int,
                         default=32,
                         help='Minibatch size for model training and inference.')
+    parser.add_argument('--progressive', 
+                        action='store_true')
     parser.add_argument('--train_all_blocks',
                         action='store_true')
-    parser.set_defaults(augment=False, train_all_blocks=False)
+    parser.add_argument('--starting_block',
+                        type=int,
+                        default=0,
+                        help='How many blocks to unfreeze at the start of \
+                        fine-tuning.')
+    parser.set_defaults(augment=False, 
+                        train_all_blocks=False,
+                        progressive=False)
     args = parser.parse_args()
     
     # Parameters
@@ -85,7 +94,8 @@ if __name__ == '__main__':
     TRAIN_ALL_BLOCKS = args.train_all_blocks
     BATCH_SIZE = args.batch_size
     LOAD_WEIGHTS = True
-    STARTING_BLOCK = 0
+    STARTING_BLOCK = args.starting_block
+    PROGRESSIVE = args.progressive
     LABEL_COL = args.label_col
     
     # Directories
@@ -126,7 +136,7 @@ if __name__ == '__main__':
                               img_height=img_height,
                               img_width=img_width,
                               augmentation=AUGMENT,
-                              learning_rate=1e-4,
+                              learning_rate=1e-2,
                               effnet_trainable=TRAIN_ALL_BLOCKS)
 
     if TRAIN:
@@ -178,9 +188,13 @@ if __name__ == '__main__':
             b7_blocks = [64, 258, 406, 555, 659, 763]
             
             # Dropping the learning rate so things don't blow up
-            K.set_value(mod.optimizer.learning_rate, 1e-4)
+            K.set_value(mod.optimizer.learning_rate, 4e-4)
             
             # Progressively fine-tuning the blocks
+            if not PROGRESSIVE:
+                b7_blocks = [b7_blocks[STARTING_BLOCK]]
+                STARTING_BLOCK = 0
+            
             for b in b7_blocks[STARTING_BLOCK:]:
                 for layer in mod.layers[-b:]:
                     if not isinstance(layer, layers.BatchNormalization):
