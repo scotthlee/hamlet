@@ -110,7 +110,7 @@ def EfficientNet(num_classes=1,
     norm = layers.BatchNormalization(name='batch_norm')(pool)
     
     # Adding dropout and getting the outputs
-    drop = layers.Dropout(top_drop, name='dropout')(pool)
+    drop = layers.Dropout(top_drop, name='dropout')(norm)
     outputs = layers.Dense(num_classes, 
                            activation=dense_activation, 
                            name='dense')(drop)

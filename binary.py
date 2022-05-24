@@ -80,6 +80,15 @@ if __name__ == '__main__':
                         default=0,
                         help='How many blocks to unfreeze at the start of \
                         fine-tuning.')
+    parser.add_argument('--metric',
+                        type=str,
+                        default='val_loss',
+                        help='Which metric to use for early stopping.')
+    parser.add_argument('--metric_mode',
+                        type=str,
+                        default='min',
+                        help='Whether to min or max the metric',
+                        choices=['min', 'max'])
     parser.set_defaults(augment=False, 
                         train_all_blocks=False,
                         progressive=False)
@@ -97,6 +106,8 @@ if __name__ == '__main__':
     STARTING_BLOCK = args.starting_block
     PROGRESSIVE = args.progressive
     LABEL_COL = args.label_col
+    METRIC = args.metric
+    METRIC_MODE = args.metric_mode
     
     # Directories
     BASE_DIR = args.data_dir
@@ -154,14 +165,14 @@ if __name__ == '__main__':
         # Setting up callbacks and metrics
         tr_callbacks = [
             callbacks.EarlyStopping(patience=1,
-                                    mode='max',
-                                    monitor='val_ROC_AUC',
+                                    mode=METRIC_MODE,
+                                    monitor=METRIC,
                                     restore_best_weights=True,
                                     verbose=1),
             callbacks.ModelCheckpoint(filepath=CHECK_DIR + 'training/',
                                       save_weights_only=True,
-                                      mode='max',
-                                      monitor='val_ROC_AUC', 
+                                      mode=METRIC_MODE,
+                                      monitor=METRIC, 
                                       save_best_only=True),
             callbacks.TensorBoard(log_dir=LOG_DIR + 'training/')
         ]
@@ -179,14 +190,14 @@ if __name__ == '__main__':
             # New callbacks for the fine-tuning phase
             ft_callbacks = [
                 callbacks.EarlyStopping(patience=1,
-                                        mode='max',
-                                        monitor='val_ROC_AUC',
+                                        mode=METRIC_MODE,
+                                        monitor=METRIC,
                                         restore_best_weights=True,
                                         verbose=1),
                 callbacks.ModelCheckpoint(filepath=CHECK_DIR + 'fine_tuning/',
                                           save_weights_only=True,
-                                          mode='max',
-                                          monitor='val_ROC_AUC',
+                                          mode=METRIC_MODE,
+                                          monitor=METRIC,
                                           save_best_only=True),
                 callbacks.TensorBoard(log_dir=LOG_DIR + 'fine_tuning/')
             ]
