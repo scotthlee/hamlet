@@ -65,11 +65,9 @@ class Augmentation(layers.Layer):
             return image
         
         if training == 1:
-            output = augmented_image(input)
+            return augmented_image(input)
         else:
-            output = input
-        
-        return output
+            return input
     
     def get_config(self):
         config = super().get_config()
