@@ -37,18 +37,6 @@ if __name__ == '__main__':
                         default='abnormal',
                         help='Name of the column in the CSV file holding \
                         the labels.')
-    parser.add_argument('--log_dir',
-                        type=str,
-                        default='output/binary/logs/',
-                        help='log_dir for Keras callbacks')
-    parser.add_argument('--check_dir',
-                        type=str,
-                        default='output/binary/checkpoints/',
-                        help='check_dir for Keras callbacks')
-    parser.add_argument('--stats_dir',
-                        type=str,
-                        default='output/binary/stats/',
-                        help='Where to save the test statstics.')
     parser.add_argument('--training_type',
                         type=str,
                         default='both',
@@ -65,26 +53,37 @@ if __name__ == '__main__':
                         default='training/',
                         help='Folder holding the model file to be used for \
                         generating test predictions.')
+    parser.add_argument('--model_flavor',
+                        type=str,
+                        default='EfficientNetV2S',
+                        help='What pretrained model to use as the feature \
+                        extractor.')
     parser.add_argument('--augment',
                         action='store_true')
     parser.add_argument('--batch_size',
                         type=int,
-                        default=32,
+                        default=16,
                         help='Minibatch size for model training and inference.')
     parser.add_argument('--progressive', 
-                        action='store_true')
+                        action='store_true',
+                        help='Whether to progressively unfreeze blocks during \
+                        fine-tuning (for models that do not fit in GPU \
+                        memory).')
     parser.add_argument('--train_all_blocks',
-                        action='store_true')
+                        action='store_true',
+                        help='Whether to unfreeze all blocks of the network \
+                        at the beginning of training. Will bypyass fine \
+                        tuning.')
     parser.add_argument('--starting_block',
                         type=int,
                         default=0,
-                        help='How many blocks to unfreeze at the start of \
-                        fine-tuning.')
-    parser.add_argument('--metric',
+                        help='For models that do not fit in memory: How many \
+                        blocks to unfreeze at the start of fine-tuning.')
+    parser.add_argument('--monitor',
                         type=str,
                         default='val_loss',
                         help='Which metric to use for early stopping.')
-    parser.add_argument('--metric_mode',
+    parser.add_argument('--mode',
                         type=str,
                         default='min',
                         help='Whether to min or max the metric',
@@ -100,20 +99,22 @@ if __name__ == '__main__':
     BASE_TRAIN = args.training_type in ['base', 'both']
     FINE_TUNE = args.training_type in ['fine_tune', 'both']
     AUGMENT = args.augment
+    MODEL_FLAVOR = args.model_flavor
     TRAIN_ALL_BLOCKS = args.train_all_blocks
     BATCH_SIZE = args.batch_size
     LOAD_WEIGHTS = True
     STARTING_BLOCK = args.starting_block
     PROGRESSIVE = args.progressive
     LABEL_COL = args.label_col
-    METRIC = args.metric
-    METRIC_MODE = args.metric_mode
+    MONITOR = args.monitor
+    MODE = args.mode
     
     # Directories
     BASE_DIR = args.data_dir
-    LOG_DIR = args.log_dir
-    CHECK_DIR = args.check_dir
-    STATS_DIR = args.stats_dir
+    OUT_DIR = 'output/' + args.label_col + '/'
+    CHECK_DIR = OUT_DIR + 'checkpoints/'
+    STATS_DIR = OUT_DIR + 'stats/'
+    LOG_DIR = OUT_DIR + 'logs/'
     TEST_MOD_FOLDER = args.test_mod_folder
     TRAIN_MOD_FOLDER = args.train_mod_folder
     
@@ -147,7 +148,8 @@ if __name__ == '__main__':
                               img_height=img_height,
                               img_width=img_width,
                               augmentation=AUGMENT,
-                              learning_rate=1e-2,
+                              learning_rate=1e-4,
+                              model_flavor=MODEL_FLAVOR,
                               effnet_trainable=TRAIN_ALL_BLOCKS)
 
     if TRAIN:
@@ -165,14 +167,14 @@ if __name__ == '__main__':
         # Setting up callbacks and metrics
         tr_callbacks = [
             callbacks.EarlyStopping(patience=1,
-                                    mode=METRIC_MODE,
-                                    monitor=METRIC,
+                                    mode=MODE,
+                                    monitor=MONITOR,
                                     restore_best_weights=True,
                                     verbose=1),
             callbacks.ModelCheckpoint(filepath=CHECK_DIR + 'training/',
                                       save_weights_only=True,
-                                      mode=METRIC_MODE,
-                                      monitor=METRIC, 
+                                      mode=MODE,
+                                      monitor=MONITOR, 
                                       save_best_only=True),
             callbacks.TensorBoard(log_dir=LOG_DIR + 'training/')
         ]
@@ -186,18 +188,18 @@ if __name__ == '__main__':
                     callbacks=tr_callbacks,
                     epochs=20)
 
-        if FINE_TUNE:
+        if FINE_TUNE and not TRAIN_ALL_BLOCKS:
             # New callbacks for the fine-tuning phase
             ft_callbacks = [
                 callbacks.EarlyStopping(patience=1,
-                                        mode=METRIC_MODE,
-                                        monitor=METRIC,
+                                        mode=MODE,
+                                        monitor=MONITOR,
                                         restore_best_weights=True,
                                         verbose=1),
                 callbacks.ModelCheckpoint(filepath=CHECK_DIR + 'fine_tuning/',
                                           save_weights_only=True,
-                                          mode=METRIC_MODE,
-                                          monitor=METRIC,
+                                          mode=MODE,
+                                          monitor=MONITOR,
                                           save_best_only=True),
                 callbacks.TensorBoard(log_dir=LOG_DIR + 'fine_tuning/')
             ]

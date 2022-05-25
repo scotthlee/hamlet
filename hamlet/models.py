@@ -99,18 +99,21 @@ def EfficientNet(num_classes=1,
     else:
         aug = inputs
     
-    effnet = getattr(tf.keras.applications.efficientnet, 
-                     model_flavor)(include_top=False,
-                                   input_tensor=aug,
-                                   weights='imagenet')
+    if 'V2' in model_flavor:
+        effnet = getattr(tf.keras.applications.efficientnet_v2,
+                         model_flavor)(include_top=False,
+                                       input_tensor=aug,
+                                       weights='imagenet')
+    else:
+        effnet = getattr(tf.keras.applications.efficientnet, 
+                         model_flavor)(include_top=False,
+                                       input_tensor=aug,
+                                       weights='imagenet')
     effnet.trainable = effnet_trainable
     
     # Rebuilding the top layer for EfficientNet
     pool = layers.GlobalAveragePooling2D(name='avg_pool')(effnet.output)
-    norm = layers.BatchNormalization(name='batch_norm')(pool)
-    
-    # Adding dropout and getting the outputs
-    drop = layers.Dropout(top_drop, name='dropout')(norm)
+    drop = layers.Dropout(top_drop, name='dropout')(pool)
     outputs = layers.Dense(num_classes, 
                            activation=dense_activation, 
                            name='dense')(drop)
