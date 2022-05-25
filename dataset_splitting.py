@@ -113,6 +113,8 @@ non_iom = [df[all_cols] for df in non_iom]
 non_iom = [df.iloc[:, ~df.columns.duplicated()] for df in non_iom]
 non_iom = pd.concat(non_iom, axis=0)
 all_df = pd.concat([iom[all_cols], non_iom], axis=0)
+all_df['abnormal_tb'] = np.array(all_df[find_cols].sum(axis=1) > 0,
+                                 dtype=np.uint8))
 all_df.to_csv(base_dir + 'all.csv', index=False)
 
 # And finally moving the images into their respective folders
