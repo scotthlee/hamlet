@@ -50,6 +50,11 @@ if __name__ == '__main__':
                         choices=['base', 'fine_tune', 'both'],
                         help='Whether to do base training, fine-tuning, or \
                         both. Only applies if --mode is either train or both')
+    parser.add_argument('--progressive',
+                        action='store_true',
+                        help='Will gradually unfreeze blocks of the model \
+                        instead of training them all at once. Only applies \
+                        if training_type is fine_tune or both.')
     parser.add_argument('--train_mod_folder',
                         type=str,
                         default=None,
@@ -57,16 +62,31 @@ if __name__ == '__main__':
                         training. Ignored if --mode is "test".')
     parser.add_argument('--test_mod_folder',
                         type=str,
-                        default='fine_tuning/',
+                        default='training/',
                         help='Folder holding the model file to be used for \
                         generating test predictions.')
-    parser.add_argument('--augment',
+    parser.add_argument('--no_augmentation',
                         action='store_true')
+    parser.add_argument('--starting_block',
+                        type=int,
+                        default=0,
+                        help='For models that do not fit in memory: How many \
+                        blocks to unfreeze at the start of fine-tuning.')
+    parser.add_argument('--metric',
+                        type=str,
+                        default='val_ROC_AUC',
+                        help='Which metric to use for early stopping.')
+    parser.add_argument('--metric_mode',
+                        type=str,
+                        default='max',
+                        help='Whether to min or max the metric',
+                        choices=['min', 'max'])
     parser.add_argument('--batch_size',
                         type=int,
-                        default=32,
+                        default=16,
                         help='Minibatch size for model training and inference.')
-    parser.set_defaults(augment=False)
+    parser.set_defaults(no_augmentation=False,
+                        progressive=False)
     args = parser.parse_args()
     
     # Parameters
@@ -74,10 +94,12 @@ if __name__ == '__main__':
     TEST = args.mode in ['test', 'both']
     BASE_TRAIN = args.training_type in ['base', 'both']
     FINE_TUNE = args.training_type in ['fine_tune', 'both']
-    AUGMENT = args.augment
+    AUGMENT = not args.no_augmentation
+    ALL_BLOCKS = not args.progressive
     BATCH_SIZE = args.batch_size
-    LOAD_WEIGHTS = True
     STARTING_BLOCK = 0
+    METRIC_MODE = args.metric_mode
+    METRIC = args.metric
     
     # Directories
     BASE_DIR = args.data_dir
@@ -86,6 +108,12 @@ if __name__ == '__main__':
     STATS_DIR = args.stats_dir
     TEST_MOD_FOLDER = args.test_mod_folder
     TRAIN_MOD_FOLDER = args.train_mod_folder
+    
+    if AUGMENT:
+        print('Augmentation on.')
+    if ALL_BLOCKS:
+        print('Training all blocks.')
+        print('')
     
     # Reading the labels
     records = pd.read_csv(BASE_DIR + args.csv_name, encoding='latin')
@@ -124,7 +152,8 @@ if __name__ == '__main__':
                               img_height=img_height,
                               img_width=img_width,
                               augmentation=AUGMENT,
-                              learning_rate=1e-3)
+                              effnet_trainable=ALL_BLOCKS,
+                              learning_rate=1e-4)
 
     if TRAIN:
         train_dg = ImageDataGenerator()
@@ -141,12 +170,15 @@ if __name__ == '__main__':
         # Setting up callbacks and metrics
         tr_callbacks = [
             callbacks.EarlyStopping(patience=1,
+                                    monitor=METRIC,
+                                    mode=METRIC_MODE,
                                     restore_best_weights=True),
             callbacks.ModelCheckpoint(filepath=CHECK_DIR + 'training/',
                                       save_weights_only=True,
-                                      monitor='val_loss',
+                                      monitor=METRIC,
+                                      mode=METRIC_MODE,
                                       save_best_only=True),
-            callbacks.TensorBoard(log_dir= + 'training/')
+            callbacks.TensorBoard(LOG_DIR + 'training/')
         ]
         
         if args.train_mod_folder:
@@ -162,12 +194,15 @@ if __name__ == '__main__':
             # New callbacks for the fine-tuning phase
             ft_callbacks = [
                 callbacks.EarlyStopping(patience=1,
+                                        monitor=METRIC,
+                                        mode=METRIC_MODE,
                                         restore_best_weights=True),
                 callbacks.ModelCheckpoint(filepath=CHECK_DIR + 'fine_tuning/',
                                           save_weights_only=True,
-                                          monitor='val_loss',
+                                          monitor=METRIC,
+                                          mode=METRIC_MODE,
                                           save_best_only=True),
-                callbacks.TensorBoard(log_dir= + 'fine_tuning/')
+                callbacks.TensorBoard(LOG_DIR + 'fine_tuning/')
             ]
             
             # Layer numbers for the block breaks
@@ -216,3 +251,5 @@ if __name__ == '__main__':
         stats['finding'] = findings
         stats['cutpoint'] = [cuts[f]['j'] for f in findings]
         stats.to_csv(STATS_DIR + 'multi_stats.csv', index=False)
+        val_preds.to_csv(STATS_DIR + 'val_preds.csv', index=False)
+        test_preds.to_csv(STATS_DIR + 'test_preds.csv', index=False)

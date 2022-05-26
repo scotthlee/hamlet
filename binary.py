@@ -39,7 +39,7 @@ if __name__ == '__main__':
                         the labels.')
     parser.add_argument('--training_type',
                         type=str,
-                        default='both',
+                        default='base',
                         choices=['base', 'fine_tune', 'both'],
                         help='Whether to do base training, fine-tuning, or \
                         both. Only applies if --mode is either train or both')
@@ -100,7 +100,7 @@ if __name__ == '__main__':
     FINE_TUNE = args.training_type in ['fine_tune', 'both']
     AUGMENT = args.augment
     MODEL_FLAVOR = args.model_flavor
-    TRAIN_ALL_BLOCKS = args.train_all_blocks
+    ALL_BLOCKS = args.train_all_blocks
     BATCH_SIZE = args.batch_size
     LOAD_WEIGHTS = True
     STARTING_BLOCK = args.starting_block
@@ -117,6 +117,13 @@ if __name__ == '__main__':
     LOG_DIR = OUT_DIR + 'logs/'
     TEST_MOD_FOLDER = args.test_mod_folder
     TRAIN_MOD_FOLDER = args.train_mod_folder
+    
+    # Just some info
+    if AUGMENT:
+        print('Augmentation on.')
+    if ALL_BLOCKS:
+        print('Training all blocks.')
+        print('')
     
     # Reading the labels
     records = pd.read_csv(BASE_DIR + args.csv_name, encoding='latin')
@@ -150,7 +157,7 @@ if __name__ == '__main__':
                               augmentation=AUGMENT,
                               learning_rate=1e-4,
                               model_flavor=MODEL_FLAVOR,
-                              effnet_trainable=TRAIN_ALL_BLOCKS)
+                              effnet_trainable=ALL_BLOCKS)
 
     if TRAIN:
         train_dg = ImageDataGenerator()
