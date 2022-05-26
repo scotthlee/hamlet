@@ -15,15 +15,16 @@ im_dir = 'img/test/'
 im_files = os.listdir(im_dir)
 im_paths = [im_dir + s for s in im_files]
 ims = [tim.load_image(p, (600, 600)) for p in im_paths]
+im = ims[0]
 
 # Loading a model
-model = models.EfficientNet(num_classes=1, augmentation=False)
-model.load_weights('output/binary/checkpoints/training/')
-conv_layer = model.get_layer('top_conv')
-model = tf.keras.models.Model([model.inputs], 
-                              [conv_layer.output, model.output])
+mod = models.EfficientNet(num_classes=1, augmentation=True)
+mod.load_weights('output/abnormal/checkpoints/training/')
+conv_layer = mod.get_layer('top_conv')
+mod = tf.keras.models.Model([mod.inputs], 
+                              [conv_layer.output, mod.output])
 call_model_args = {'class_id': 0,
-                   'model': model}
+                   'model': mod}
 
 # Trying the single-image plot
 methods = ['gradient', 'gradcam', 'xrai']

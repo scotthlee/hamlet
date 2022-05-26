@@ -113,109 +113,75 @@ def compute_masks(image,
     return all_masks, obj_names
 
 
-def panel_plot_by_method(image, 
-               masks, 
-               methods,
-               size=None,
+def panel_plot(images,
+               masks,
+               method_name='GradCam',
                show=True,
                save=False,
-               overlay_cmap='jet',
-               save_dir=None):
-    """Makes multiple heatmaps for a single image."""
-    fig, ax = plt.subplots(1, 5, sharey=True)
-    plt.subplots_adjust(wspace=0, hspace=0)
-    to_plot = [masks[0], masks[1]]
-    
-    if method == 'XRAI':
-        shape = masks[i][0].shape
-        titles = ['XRAI', 'XRAI (Top regions)', '', '']
-        cmaps = ['gray'] * 4
-        to_plot += [np.ones(shape)] * 2
-    else:
-        titles = ['Activations', 'Activations (Smooth)', 'Overlay', 
-                  'Overlay (Smooth)']
-        cmaps = ['gray', 'gray', None, None]
-        to_plot += [tim.overlay_heatmap(image, 
-                                        masks[0], 
-                                        cmap=overlay_cmap)]
-        to_plot += [tim.overlay_heatmap(image, 
-                                        masks[1], 
-                                        cmap=overlay_cmap)]
-    
-    titles = ['Original'] + titles
-    if not use_titles:
-        titles = [None] * len(titles)
-    
-    tim.show_image(image / 255,
-                   title=titles[0],
-                   ax=ax[0])
-    
-    for i, mask in enumerate(to_plot):
-        tim.show_image(mask,
-                       cmap=cmaps[i],
-                       title=titles[i+1],
-                       ax=ax[i +1])
-    
-    plt.tight_layout()
-    if show:
-        plt.show()
-    
-    return
-
-
-def panel_plot_by_image(images,
-                        masks,
-                        method_name='GradCam',
-                        show=True,
-                        save=False,
-                        save_dir='img/',
-                        image_ids=None,
-                        scale=1.5,
-                        xrai_cmap='gray',
-                        overlay_cmap='jet'):
+               save_dir='img/',
+               image_ids=None,
+               scale=1.5,
+               xrai_cmap='gray',
+               overlay_cmap='jet'):
     """Makes a single series of heatmaps for multiple images."""
     masks = deepcopy(masks)
     h = len(images)
     
     # Setting up the plots differently for XRAI and everything else
     if method_name in ['XRAI', 'xrai']:
-        w = len(masks)
+        w = len(masks[0]) + 1
         fig, ax = plt.subplots(nrows=h,
                                ncols=w,
                                figsize=(scale * w, scale * h))
         titles = ['XRAI', 'XRAI (Top regions)']
         cmaps = [xrai_cmap] * 2
     else:
-        w = len(masks) + 2
+        w = len(masks[0]) + 3
         fig, ax = plt.subplots(nrows=h, 
                                ncols=w, 
                                figsize=(scale * w, scale * h))
         titles = ['Activations', 'Activations (Smooth)', 
                   'Overlay', 'Overlay (Smooth)']
         cmaps = ['gray', 'gray', None, None]
-        for i, m in enumerate(masks):
-            m += [tim.overlay_heatmap(images[i],
-                                      m[0],
-                                      cmap=overlay_cmap)]
-            m += [tim.overlay_heatmap(images[i],
-                                      m[1],
-                                      cmap=overlay_cmap)]
+        for i, image in enumerate(images):
+            masks[i] += [tim.overlay_heatmap(image,
+                                          masks[i][0],
+                                          cmap=overlay_cmap)]
+            masks[i] += [tim.overlay_heatmap(image,
+                                             masks[i][1],
+                                             cmap=overlay_cmap)]
     
     # Filling the plots
-    for i, image in enumerate(images):
-        tim.show_image(image / 255,
-                       ax=ax[i, 0])
-        for j, mask in enumerate(masks[i]):
+    if len(images) < 2:
+        image = images[0]
+        masks = masks[0]
+        tim.show_image(image / 255, ax=ax[0])
+        for j, mask in enumerate(masks):
             tim.show_image(mask,
                            cmap=cmaps[j],
-                           ax=ax[i, j+1])
+                           ax=ax[j+1])
+        
+        titles = ['Original'] + titles
+        for i, title in enumerate(titles):
+            ax[i].set_title(title)
+        
+    else:
+        for i, image in enumerate(images):
+            tim.show_image(image / 255,
+                           ax=ax[i, 0])
+            for j, mask in enumerate(masks[i]):
+                tim.show_image(mask,
+                               cmap=cmaps[j],
+                               ax=ax[i, j+1])
+        
+        titles = ['Original'] + titles
+        for i, title in enumerate(titles):
+            ax[0, i].set_title(title)
     
-    # Setting the top titles
-    titles = ['Original'] + titles
-    for i, title in enumerate(titles):
-        ax[0, i].set_title(title)
-    
-    # Adjusting space between and around the subplots    
+    # Adjusting space between and around the subplots
+    if method_name != 'XRAI':
+        plt.suptitle(method_name)
+        
     plt.tight_layout()
     plt.subplots_adjust(wspace=0, hspace=0)
     
