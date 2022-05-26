@@ -1,4 +1,5 @@
 *.pyc
-**/binary/checkpoints/
-**/multilabel/checkpoints/
+**/abnormal/*
+**/abnormal_tb/*
+**/multilabel/*
 .DS_Store
