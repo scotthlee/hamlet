@@ -34,9 +34,9 @@ For our project, all of the x-rays came in as DICOM files, and they were often a
 
 ### Modeling
 1. [dataset_splitting.py](dataset_splitting.py) combines the images from our three main data sources and splits thems into training, validation, and test sets. It also selects which of the columns from the DS-3030 form to keep in the final structured dataset. This is less likely to be reusable for other projects, but we're including it here for the sake of transparency.
-2. [binary.py](binary.py) and [multilabel.py](multilabel.py) train and test the binary and multilabel classification models, respectively.
+2. [train.py](train.py) and [test.py](test.py) train and test the models. To specify which target to use for prediction, use the `--task` argument (options are `abnormal`, `abnormal_tb`, and `findings`).
 
-Data loading for `binary.py` and `multilabel.py` is handled by [tf.data](https://www.tensorflow.org/guide/data) data generators. When specifying directories (e.g., `--img_dir`), the full path should be provided, unless otherwise noted, and the images themselves should be in subfolders named `img/` in those directories. Please see the command-line arguments in the scripts for more information.
+Note: data loading for the modeling scripts is handled by [tf.data](https://www.tensorflow.org/guide/data) data generators. When specifying directories (e.g., `--img_dir`), the full path should be provided, unless otherwise noted, and the images themselves should be in subfolders named `img/` in those directories. Please see the command-line arguments in the scripts for more information.
 
 ### Inference
 1. [generate_predictions.py](generate_predictions.py) runs inference for both model types on a new set of images in and writes an image-level CSV to the same directory with the predicted probabilities for each outcome.
