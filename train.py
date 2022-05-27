@@ -15,11 +15,17 @@ from hamlet import models
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--mode',
+    parser.add_argument('--task',
                         type=str,
-                        default='both',
-                        choices=['train', 'test', 'both'],
-                        help='Whether to train or test the model, or both.')
+                        default='abnormal',
+                        help='Which prediction task to train on.',
+                        choices=['abnormal', 'abnormal_tb', 'findings'])
+    parser.add_argument('--training_type',
+                        type=str,
+                        default='base',
+                        choices=['base', 'fine_tune', 'both'],
+                        help='Whether to do base training, fine-tuning, or \
+                        both. Only applies if --mode is either train or both')
     parser.add_argument('--data_dir',
                         type=str,
                         default='D:/data/hamlet/',
@@ -32,17 +38,6 @@ if __name__ == '__main__':
                         help='Name of the CSV file (including the file \
                         extension) holding the image-level labels and \
                         metadata.')
-    parser.add_argument('--task',
-                        type=str,
-                        default='abnormal',
-                        help='Which prediction task to train on.',
-                        choices=['abnormal', 'abnormal_tb', 'findings'])
-    parser.add_argument('--training_type',
-                        type=str,
-                        default='base',
-                        choices=['base', 'fine_tune', 'both'],
-                        help='Whether to do base training, fine-tuning, or \
-                        both. Only applies if --mode is either train or both')
     parser.add_argument('--train_mod_folder',
                         type=str,
                         default=None,
@@ -57,7 +52,7 @@ if __name__ == '__main__':
                         action='store_true')
     parser.add_argument('--batch_size',
                         type=int,
-                        default=16,
+                        default=4,
                         help='Minibatch size for model training and inference.')
     parser.add_argument('--progressive', 
                         action='store_true',
@@ -88,8 +83,6 @@ if __name__ == '__main__':
     args = parser.parse_args()
     
     # Parameters
-    TRAIN = args.mode in ['train', 'both']
-    TEST = args.mode in ['test', 'both']
     BASE_TRAIN = args.training_type in ['base', 'both']
     FINE_TUNE = args.training_type in ['fine_tune', 'both']
     AUGMENT = not args.no_augmentation
@@ -98,13 +91,13 @@ if __name__ == '__main__':
     BATCH_SIZE = args.batch_size
     STARTING_BLOCK = args.starting_block
     PROGRESSIVE = args.progressive
-    LABEL_COL = args.label_col
+    TASK = args.task
     METRIC = args.metric
     METRIC_MODE = args.metric_mode
     
     # Directories
     BASE_DIR = args.data_dir
-    OUT_DIR = 'output/' + args.label_col + '/'
+    OUT_DIR = 'output/' + args.task + '/'
     CHECK_DIR = OUT_DIR + 'checkpoints/'
     LOG_DIR = OUT_DIR + 'logs/'
     TRAIN_MOD_FOLDER = args.train_mod_folder
@@ -112,7 +105,7 @@ if __name__ == '__main__':
     # Just some info
     if AUGMENT:
         print('Augmentation on.')
-    if ALL_BLOCKS and TRAIN:
+    if ALL_BLOCKS:
         print('Training all blocks.\n')
     
     # Reading the labels
@@ -152,7 +145,18 @@ if __name__ == '__main__':
                                                       img_width),
                                          batch_size=BATCH_SIZE)
 
-    # Training the top layer from scratch
+    train_dg = ImageDataGenerator()
+    train_dir = BASE_DIR + 'train/img/'
+    train_gen = train_dg.flow_from_dataframe(dataframe=train,
+                                             directory=train_dir,
+                                             x_col='file',
+                                             y_col=LABEL_COL,
+                                             class_mode='raw',
+                                             target_size=(img_height, 
+                                                          img_width),
+                                             batch_size=BATCH_SIZE)
+    
+    # Setting up a fresh model
     mod = models.EfficientNet(num_classes=NUM_CLASSES,
                               img_height=img_height,
                               img_width=img_width,
@@ -160,77 +164,65 @@ if __name__ == '__main__':
                               learning_rate=1e-4,
                               model_flavor=MODEL_FLAVOR,
                               effnet_trainable=ALL_BLOCKS)
+    
+    # Setting up callbacks and metrics
+    tr_callbacks = [
+        callbacks.EarlyStopping(patience=1,
+                                mode=METRIC_MODE,
+                                monitor=METRIC,
+                                restore_best_weights=True,
+                                verbose=1),
+        callbacks.ModelCheckpoint(filepath=CHECK_DIR + 'training/',
+                                  save_weights_only=True,
+                                  mode=METRIC_MODE,
+                                  monitor=METRIC, 
+                                  save_best_only=True),
+        callbacks.TensorBoard(log_dir=LOG_DIR + 'training/')
+    ]
+    
+    if TRAIN_MOD_FOLDER:
+        mod.load_weights(CHECK_DIR + TRAIN_MOD_FOLDER)
+    
+    if BASE_TRAIN:
+        mod.fit(train_gen,
+                validation_data=val_gen,
+                callbacks=tr_callbacks,
+                epochs=20)
 
-    if TRAIN:
-        train_dg = ImageDataGenerator()
-        train_dir = BASE_DIR + 'train/img/'
-        train_gen = train_dg.flow_from_dataframe(dataframe=train,
-                                                 directory=train_dir,
-                                                 x_col='file',
-                                                 y_col=LABEL_COL,
-                                                 class_mode='raw',
-                                                 target_size=(img_height, 
-                                                              img_width),
-                                                 batch_size=BATCH_SIZE)
-
-        # Setting up callbacks and metrics
-        tr_callbacks = [
+    if FINE_TUNE and not ALL_BLOCKS:
+        # New callbacks for the fine-tuning phase
+        ft_callbacks = [
             callbacks.EarlyStopping(patience=1,
                                     mode=METRIC_MODE,
                                     monitor=METRIC,
                                     restore_best_weights=True,
                                     verbose=1),
-            callbacks.ModelCheckpoint(filepath=CHECK_DIR + 'training/',
+            callbacks.ModelCheckpoint(filepath=CHECK_DIR + 'fine_tuning/',
                                       save_weights_only=True,
                                       mode=METRIC_MODE,
-                                      monitor=METRIC, 
+                                      monitor=METRIC,
                                       save_best_only=True),
-            callbacks.TensorBoard(log_dir=LOG_DIR + 'training/')
+            callbacks.TensorBoard(log_dir=LOG_DIR + 'fine_tuning/')
         ]
         
-        if TRAIN_MOD_FOLDER:
-            mod.load_weights(CHECK_DIR + TRAIN_MOD_FOLDER)
+        # Layer numbers for the block breaks
+        b0_blocks = [20, 78, 121, 165, 194]
+        b7_blocks = [64, 258, 406, 555, 659, 763]
         
-        if BASE_TRAIN:
+        # Dropping the learning rate so things don't blow up
+        K.set_value(mod.optimizer.learning_rate, 4e-4)
+        
+        # Progressively fine-tuning the blocks
+        if not PROGRESSIVE:
+            b7_blocks = [b7_blocks[STARTING_BLOCK]]
+            STARTING_BLOCK = 0
+        
+        for b in b7_blocks[STARTING_BLOCK:]:
+            for layer in mod.layers[-b:]:
+                if not isinstance(layer, layers.BatchNormalization):
+                    layer.trainable = True
+            
             mod.fit(train_gen,
                     validation_data=val_gen,
-                    callbacks=tr_callbacks,
-                    epochs=20)
-
-        if FINE_TUNE and not TRAIN_ALL_BLOCKS:
-            # New callbacks for the fine-tuning phase
-            ft_callbacks = [
-                callbacks.EarlyStopping(patience=1,
-                                        mode=METRIC_MODE,
-                                        monitor=METRIC,
-                                        restore_best_weights=True,
-                                        verbose=1),
-                callbacks.ModelCheckpoint(filepath=CHECK_DIR + 'fine_tuning/',
-                                          save_weights_only=True,
-                                          mode=METRIC_MODE,
-                                          monitor=METRIC,
-                                          save_best_only=True),
-                callbacks.TensorBoard(log_dir=LOG_DIR + 'fine_tuning/')
-            ]
-            
-            # Layer numbers for the block breaks
-            b0_blocks = [20, 78, 121, 165, 194]
-            b7_blocks = [64, 258, 406, 555, 659, 763]
-            
-            # Dropping the learning rate so things don't blow up
-            K.set_value(mod.optimizer.learning_rate, 4e-4)
-            
-            # Progressively fine-tuning the blocks
-            if not PROGRESSIVE:
-                b7_blocks = [b7_blocks[STARTING_BLOCK]]
-                STARTING_BLOCK = 0
-            
-            for b in b7_blocks[STARTING_BLOCK:]:
-                for layer in mod.layers[-b:]:
-                    if not isinstance(layer, layers.BatchNormalization):
-                        layer.trainable = True
-                
-                mod.fit(train_gen,
-                        validation_data=val_gen,
-                        epochs=20,
-                        callbacks=ft_callbacks)
+                    epochs=20,
+                    callbacks=ft_callbacks)
