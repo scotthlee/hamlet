@@ -245,5 +245,11 @@ if __name__ == '__main__':
         stats['finding'] = findings
         stats['cutpoint'] = [cuts[f]['j'] for f in findings]
         stats.to_csv(STATS_DIR + 'multi_stats.csv', index=False)
-        val_preds.to_csv(STATS_DIR + 'val_preds.csv', index=False)
-        test_preds.to_csv(STATS_DIR + 'test_preds.csv', index=False)
+        
+        prob_columns = [s + '_prob' for s in findings]
+        val_preds.columns = prob_columns
+        test_preds.columns = prob_columns
+        val = pd.concat([val, val_preds], axis=1)
+        test = pd.concat([test, test_preds], axis=1)
+        val.to_csv(STATS_DIR + 'val_preds.csv', index=False)
+        test.to_csv(STATS_DIR + 'test_preds.csv', index=False)
