@@ -1,5 +1,5 @@
 *.pyc
 **/abnormal/*
 **/abnormal_tb/*
-**/multilabel/*
+**/findings/*
 .DS_Store
