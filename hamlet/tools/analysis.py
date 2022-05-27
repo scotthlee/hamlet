@@ -32,6 +32,80 @@ def sesp_to_obs(se, sp, p, N=1000):
     return obs
 
 
+def roc_point_to_count_diff(tpr, fpr, p):
+    """Calculates the difference between true prevalence and predicted 
+    prevalence based on the model's sensitivity and specificity, and 
+    the population's true number of positives and negatives.    
+    """
+    out = np.abs((fpr * (1 - p)) - ((1 - tpr) * p))
+    return out
+
+
+def count_cutpoint_from_roc_curve(roc, p):
+    """Finds the decision threshold that minimizes the difference betwee 
+    true prevalence and predicted prevalence based on error rates from 
+    a ROC curve.
+    """
+    diffs = [roc_point_to_count_diff(roc[1][i],
+                                     roc[0][i],
+                                     p=p) for i in range(len(roc[0]))]
+    return roc[2][np.argmin(diffs)]
+
+def get_cutpoint(targets,
+                 guesses,
+                 p_adj=None,
+                 out_type='dict'):
+    """Returns the decision threshold for a set of predicted probabilities \
+    that maximizes a particular metric relative to a set of labels.
+    """
+    # Setting up the things for count_diffs
+    p = np.sum(targets) / len(targets)
+    if not p_adj:
+        p_adj = np.sum(targets) / len(targets)
+    
+    # Generating the roc curves and metrics
+    roc = roc_curve(targets, guesses)
+    js = roc[1] + (1 - roc[0]) - 1
+    j_cut = roc[2][np.argmax(js)]
+    count_cut = count_cutpoint_from_roc_curve(roc, p)
+    count_adj_cut = count_cutpoint_from_roc_curve(roc, p_adj)
+    
+    if out_type == 'dict':
+        out = {'j': j_cut, 
+               'count': count_cut, 
+               'count_adj': count_adj_cut}
+    if out_type == 'df':
+        out = pd.DataFrame([j_cut, count_cut, count_estim_cut]).transpose()
+        out.columns = ['j', 'count', 'count_adj']
+    return out
+
+
+def get_cutpoints(Y, Y_,
+                  out_type='dict',
+                  column_names=None):
+    """Returns the decision threhsolds for a set of multilable predictions.
+    """
+    if type(Y) != type(pd.DataFrame()):
+        Y = pd.DataFrame(Y)
+        Y_ = pd.DataFrame(Y_)
+    
+    if column_names:
+        Y.columns = column_names
+        Y_.columns = column_names
+    else:
+        column_names = Y.columns.values
+    
+    cuts = [get_cutpoint(Y[c], Y_[c],
+                         out_type=out_type) for c in column_names]
+    if out_type == 'dict':
+        out = dict(zip(column_names, cuts))
+    else:
+        out = pd.concat(cuts, axis=0)
+        out['col'] = column_names
+    return out
+
+
+
 def mcnemar_test(targets, guesses, cc=True):
     """Calculates McNemar's chi-squared statistic."""
     cm = confusion_matrix(targets, guesses)
@@ -567,78 +641,6 @@ def grid_metrics(targets,
 
     return pd.concat(scores, axis=0)
 
-
-def roc_to_count_diffs(se, sp, Nn, Np):
-    """Calculates the difference between true prevalence and predicted 
-    prevalence based on the model's sensitivity and specificity, and 
-    the population's true number of positives and negatives.    
-    """
-    return np.abs((1- sp)*Nn - (1 - se)*Np)
-
-
-def get_cutpoint(targets,
-                 guesses,
-                 N=None,
-                 p=None,
-                 out_type='dict'):
-    """Returns the decision threshold for a set of predicted probabilities \
-    that maximizes a particular metric relative to a set of labels.
-    """
-    # Setting up the things for count_diffs
-    if not N:
-        N = len(targets)
-    if not p:
-        p = np.sum(targets) / N
-    
-    Np = np.sum(targets)
-    Nn = N - Np
-    
-    # Generating the roc curves and metrics
-    roc = roc_curve(targets, guesses)
-    js = roc[1] + (1 - roc[0]) - 1
-    j_cut = roc[2][np.argmax(js)]
-    count_diffs = np.abs((1 - roc[0]) - roc[1])
-    count_cut = roc[2][np.argmin(count_diffs)]
-    count_adj_diffs = [roc_to_count_diffs(sp=(1 - roc[0]),
-                                          se=roc[1], 
-                                          Nn=Nn, 
-                                          Np=Np)]
-    count_adj_cut = roc[2][np.argmin(np.abs(count_adj_diffs))]
-    if out_type == 'dict':
-        out = {'j': j_cut, 
-               'count': count_cut, 
-               'count_adj': count_adj_cut}
-    if out_type == 'df':
-        out = pd.DataFrame([j_cut, count_cut, count_estim_cut]).transpose()
-        out.columns = ['j', 'count', 'count_adj']
-    return out
-
-
-def get_cutpoints(Y, Y_, 
-                  step=0.01,
-                  out_type='dict',
-                  column_names=None):
-    """Returns the decision threhsolds for a set of multilable predictions.
-    """
-    if type(Y) != type(pd.DataFrame()):
-        Y = pd.DataFrame(Y)
-        Y_ = pd.DataFrame(Y_)
-    
-    if column_names:
-        Y.columns = column_names
-        Y_.columns = column_names
-    else:
-        column_names = Y.columns.values
-    
-    cuts = [get_cutpoint(Y[c], Y_[c],
-                         out_type=out_type) for c in column_names]
-    if out_type == 'dict':
-        out = dict(zip(column_names, cuts))
-    else:
-        out = pd.concat(cuts, axis=0)
-        out['col'] = column_names
-    return out
-    
 
 def roc_cis(rocs, alpha=0.05, round=2):
     # Getting the quantiles to make CIs
