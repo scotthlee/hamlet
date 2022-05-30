@@ -51,6 +51,7 @@ def count_cutpoint_from_roc_curve(roc, p):
                                      p=p) for i in range(len(roc[0]))]
     return roc[2][np.argmin(diffs)]
 
+
 def get_cutpoint(targets,
                  guesses,
                  p_adj=None,
@@ -104,6 +105,14 @@ def get_cutpoints(Y, Y_,
         out['col'] = column_names
     return out
 
+
+def resample_dataset(df, y, p_adj):
+    pos = np.where(y == 1)[0]
+    neg = np.where(y == 0)[0]
+    N = len(y)
+    pos_samp = np.random.choice(pos, int(N * p_adj), replace=False)
+    new_rows = np.concatenate([pos_samp, neg]).flatten()
+    return df.iloc[new_rows, :]
 
 
 def mcnemar_test(targets, guesses, cc=True):
