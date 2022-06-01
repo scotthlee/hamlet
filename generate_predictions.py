@@ -28,17 +28,17 @@ if __name__ == '__main__':
                         files. Writes to img_dir by default.')
     parser.add_argument('--bin_mod_dir',
                         type=str,
-                        default='output/binary/checkpoints/training/',
+                        default='output/abnormal/checkpoints/training/',
                         help='Path to the folder holding the trained \
                         binary classification model.')
     parser.add_argument('--multi_mod_dir',
                         type=str,
-                        default='output/multilabel/checkpoints/fine_tuning/',
+                        default='output/multilabel/checkpoints/training/',
                         help='Path to the folder holding the trained \
                         multilabel classification model.')
     parser.add_argument('--bin_cut_csv',
                         type=str,
-                        default='output/binary/stats/binary_stats.csv',
+                        default='output/abnormal/stats/binary_stats.csv',
                         help='Path to a CSV file holding the decision \
                         threshold for the abnormal/normal prediction. The \
                         column with the threshold should be named "cutpoint".')
@@ -50,28 +50,34 @@ if __name__ == '__main__':
                         with the thresholds should be named "cutpoint", and \
                         the column with the findings should be named \
                         "finding".')
-    parser.add_argument('--augment',
+    parser.add_argument('--model_flavor',
+                        type=str,
+                        default='EfficientNetV2S',
+                        help='What pretrained model to use as the feature \
+                        extractor.')
+    parser.add_argument('--no_augmentation',
                         action='store_true',
                         help='Specifies that the models should be built with \
                         the image augmentation layer.')
     parser.add_argument('--batch_size',
                         type=int,
-                        default=32,
+                        default=4,
                         help='Minibatch size for inference.')
     parser.add_argument('--img_dim',
                         type=int,
                         default=600,
                         help='Either dimension of the image to be passed \
                         to the model.')
-    parser.set_defaults(augment=False)
+    parser.set_defaults(no_augmentation=False)
     args = parser.parse_args()
     
-    # Globals
-    AUGMENT = args.augment
+    # Setting things up
+    AUGMENT = not args.no_aumgentation
     BIN_MOD_DIR = args.bin_mod_dir
     BIN_CUT_CSV = args.bin_cut_csv
     MULTI_MOD_DIR = args.multi_mod_dir
     MULTI_CUT_CSV = args.multi_cut_csv
+    MODEL_FLAVOR = args.model_flavor
     IMG_DIR = args.img_dir
     IMG_DIM = args.img_dim
     BATCH_SIZE = args.batch_size
