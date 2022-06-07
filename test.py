@@ -78,7 +78,7 @@ if __name__ == '__main__':
     
     # Reading the labels
     records = pd.read_csv(BASE_DIR + args.csv_name, encoding='latin')
-    if TASK == 'multilabel':
+    if TASK == 'findings':
         LABEL_COL = [
             'infiltrate', 'reticular', 'cavity',
             'nodule', 'pleural_effusion', 'hilar_adenopathy',
@@ -233,20 +233,20 @@ if __name__ == '__main__':
     
     else:
         val_preds = pd.DataFrame(mod.predict(val_gen, verbose=1),
-                                 columns=findings)
+                                 columns=LABEL_COL)
         test_preds = pd.DataFrame(mod.predict(test_gen, verbose=1),
-                                  columns=findings)
-        cuts = ta.get_cutpoints(val[findings], val_preds)
+                                  columns=LABEL_COL)
+        cuts = ta.get_cutpoints(val[LABEL_COL], val_preds)
         stats = [ta.clf_metrics(test[f], 
                                 test_preds[f], 
                                 cutpoint=cuts[f]['j'])
-                 for f in findings]
+                 for f in LABEL_COL]
         stats = pd.concat(stats, axis=0)
-        stats['finding'] = findings
-        stats['cutpoint'] = [cuts[f]['j'] for f in findings]
+        stats['finding'] = LABEL_COL
+        stats['cutpoint'] = [cuts[f]['j'] for f in LABEL_COL]
         stats.to_csv(STATS_DIR + 'multi_stats.csv', index=False)
         
-        prob_columns = [s + '_prob' for s in findings]
+        prob_columns = [s + '_prob' for s in LABEL_COL]
         val_preds.columns = prob_columns
         test_preds.columns = prob_columns
         val = pd.concat([val, val_preds], axis=1)
