@@ -12,21 +12,20 @@ from scipy.stats import chi2, norm
 from copy import deepcopy
 from multiprocessing import Pool
 
-import preprocessing as tp
-import analysis as ta
+from . import analysis as ta
 
 
 def jackknife_metrics(targets, 
                       guesses,
-                      average='weighted', 
                       cutpoint=0.5, 
+                      average='weighted',
                       processes=None):
     # Replicates of the dataset with one row missing from each
     rows = np.array(list(range(targets.shape[0])))
     j_rows = [np.delete(rows, row) for row in rows]
 
     # using a pool to get the metrics across each
-    inputs = [(targets[idx], guesses[idx], average, cutpoint)
+    inputs = [(targets[idx], guesses[idx], cutpoint, None, average)
               for idx in j_rows]
     
     with Pool(processes=processes) as p:
@@ -55,9 +54,12 @@ class boot_cis:
         weighted=True,
         mcnemar=False,
         seed=10221983,
-        processes=None):
+        processes=None,
+        p_adj=None,
+        by=None,
+        boot_mean=False):
         # Converting everything to NumPy arrays, just in case
-        stype = type(pd.Series())
+        stype = type(pd.Series([0]))
         if type(targets) == stype:
             targets = targets.values
         if type(guesses) == stype:
@@ -85,50 +87,73 @@ class boot_cis:
 
         # Generating the bootstrap samples and metrics
         with Pool(processes=processes) as p:
-            boot_input = [(targets, sample_by, None, seed) for seed in seeds]
+            boot_input = [(targets, by, p_adj, seed) for seed in seeds]
             boots = p.starmap(ta.boot_sample, boot_input)
-            inputs = [(targets[boot], guesses[boot], average, cutpoint) 
+            inputs = [(targets[boot], guesses[boot], cutpoint, p_adj) 
                       for boot in boots]
             
             # Getting the bootstrapped metrics from the Pool
             p_output = p.starmap(ta.clf_metrics, inputs)
             scores = pd.concat(p_output, axis=0)
+            p.close()
+            p.join()
+        
+        # Optionally using the boot means as the main estimates
+        if p_adj:
+            stat = scores.mean().to_frame()
         
         # Calculating the confidence intervals
         lower = (a / 2) * 100
         upper = 100 - lower
+        quantiles = (lower, upper)
 
         # Making sure a valid method was chosen
-        methods = ["pct", "diff", "bca"]
-        assert method in methods, "Method must be pct, diff, or bca."
+        methods = ["pct", "diff", 'emp', "bca"]
+        assert method in methods, "Method must be pct, diff, emp, or bca."
 
         # Calculating the CIs with method #1: the percentiles of the
         # bootstrapped statistics
         if method == "pct":
             cis = np.nanpercentile(scores,
-                                   q=(lower, upper),
+                                   q=quantiles,
                                    interpolation=interpolation,
                                    axis=0)
             cis = pd.DataFrame(cis.transpose(),
                                columns=["lower", "upper"],
                                index=colnames)
-
+        
+        elif method == 'emp':
+            stat_vals = stat.transpose().values.ravel()
+            diffs = scores.values - scores.values.mean(axis=0)
+            vars = np.sum(diffs**2, axis=0) / (n - 1)
+            zl = norm.ppf(a / 2)
+            zu = norm.ppf(1 - (a / 2))
+            cis = pd.DataFrame([stat_vals + (zl * np.sqrt(vars)), 
+                                stat_vals + (zu * np.sqrt(vars))]).transpose()
+            cis.columns = ['lower', 'upper']
+            cis.set_index(stat.index, inplace=True)
+        
         # Or with method #2: the percentiles of the difference between the
         # obesrved statistics and the bootstrapped statistics
         elif method == "diff":
             stat_vals = stat.transpose().values.ravel()
             diffs = stat_vals - scores
             percents = np.nanpercentile(diffs,
-                                        q=(lower, upper),
+                                        q=quantiles,
                                         interpolation=interpolation,
                                         axis=0)
             lower_bound = pd.Series(stat_vals + percents[0])
             upper_bound = pd.Series(stat_vals + percents[1])
             cis = pd.concat([lower_bound, upper_bound], axis=1)
-            cis = cis.set_index(stat.index)
+            cis.set_index(stat.index, inplace=True)
 
         # Or with method #3: the bias-corrected and accelerated bootstrap
         elif method == "bca":
+            # Checking that we're not doing weighted sampling
+            err_mess = 'Only methods "pct" and "diff" work with weighted \
+            sampling.'
+            assert p_adj is None, err_mess
+            
             # Calculating the bias-correction factor
             stat_vals = stat.transpose().values.ravel()
             n_less = np.sum(scores < stat_vals, axis=0)
@@ -141,8 +166,8 @@ class boot_cis:
             # Estiamating the acceleration factor
             j = jackknife_metrics(targets,
                                   guesses,
-                                  average,
                                   cutpoint,
+                                  average,
                                   processes)
             diffs = j[1] - j[0]
             numer = np.sum(np.power(diffs, 3))

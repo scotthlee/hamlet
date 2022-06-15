@@ -10,9 +10,9 @@ from copy import deepcopy
 from multiprocessing import Pool
 
 
-def threshold(probs, cutoff=.5):
+def threshold(probs, cutpoint=.5):
     """Quick function for thresholding probabilities."""
-    return np.array(probs >= cutoff).astype(np.uint8)
+    return np.array(probs >= cutpoint).astype(np.uint8)
 
 
 def sesp_to_obs(se, sp, p, N=1000):
@@ -148,6 +148,7 @@ def brier_score(targets, guesses):
 def clf_metrics(true, 
                 pred,
                 cutpoint=0.5,
+                p_adj=None,
                 average='weighted',
                 mod_name=None,
                 round=4,
@@ -155,7 +156,7 @@ def clf_metrics(true,
                 mcnemar=False,
                 argmax_axis=1):
     # Converting pd.Series to np.array
-    stype = type(pd.Series())
+    stype = type(pd.Series([0]))
     if type(pred) == stype:
         pred = pred.values
     if type(true) == stype:
@@ -237,6 +238,20 @@ def clf_metrics(true,
     else:
         brier = np.round(brier_score(true, pred), round)
     
+    # Doing sens and spec first
+    confmat = confusion_matrix(true, pred)
+    tp = confmat[1, 1]
+    fp = confmat[0, 1]
+    tn = confmat[0, 0]
+    fn = confmat[1, 0]
+    sens = np.round(tp / (tp + fn), round) if tp + fn > 0 else 0
+    spec = np.round(tn / (tn + fp), round) if tn + fp > 0 else 0
+    
+    # Optionally making a reweighted sample
+    if p_adj is not None:
+        reweighted = sesp_to_obs(sens, spec, p_adj, len(pred))
+        true, pred = reweighted['y'].values, reweighted['yhat'].values
+    
     # Constructing the 2x2 table
     confmat = confusion_matrix(true, pred)
     tp = confmat[1, 1]
@@ -246,8 +261,6 @@ def clf_metrics(true,
 
     # Calculating the main binary metrics
     ppv = np.round(tp / (tp + fp), round) if tp + fp > 0 else 0
-    sens = np.round(tp / (tp + fn), round) if tp + fn > 0 else 0
-    spec = np.round(tn / (tn + fp), round) if tn + fp > 0 else 0
     npv = np.round(tn / (tn + fn), round) if tn + fn > 0 else 0
     f1 = np.round(2 * (sens * ppv) /
                   (sens + ppv), round) if sens + ppv != 0 else 0
@@ -336,9 +349,11 @@ class boot_cis:
         average='weighted',
         cutpoint=0.5,
         mcnemar=False,
-        seed=10221983):
+        seed=10221983,
+        p_adj=None,
+        boot_mean=False):
         # Converting everything to NumPy arrays, just in case
-        stype = type(pd.Series())
+        stype = type(pd.Series([0]))
         if type(targets) == stype:
             targets = targets.values
         if type(guesses) == stype:
@@ -365,12 +380,19 @@ class boot_cis:
         seeds = np.random.randint(0, 1e6, n)
 
         # Generating the bootstrap samples and metrics
-        boots = [boot_sample(targets, seed=seed) for seed in seeds]
+        boots = [boot_sample(df=targets, 
+                             by=targets, 
+                             p_adj=p_adj,
+                             seed=seed) for seed in seeds]
         scores = [clf_metrics(targets[b], 
                               guesses[b],
                               cutpoint=cutpoint,
                               average=average) for b in boots]
         scores = pd.concat(scores, axis=0)
+        
+        # Optionally using the bootstarp means as the estimates
+        if boot_mean:
+            stat = scores.mean().to_frame()
 
         # Calculating the confidence intervals
         lower = (a / 2) * 100
@@ -500,7 +522,12 @@ def onehot_matrix(y, sparse=False):
 
 # Generates bootstrap indices of a dataset with the option
 # to stratify by one of the (binary-valued) variables
-def boot_sample(df, by=None, size=None, seed=None, return_df=False):
+def boot_sample(df,
+                by=None,
+                p_adj=None,
+                seed=None, 
+                size=None, 
+                return_df=False):
 
     # Setting the random states for the samples
     if seed is None:
@@ -519,9 +546,14 @@ def boot_sample(df, by=None, size=None, seed=None, return_df=False):
 
     # Sampling by group, if group has been specified
     else:
-        levels = np.unique(by)
-        level_idx = [np.where(by == level)[0] for level in levels]
-        boot = np.random.choice(level_idx, size=len(levels), replace=True)
+        if not p_adj:
+            p_adj = np.sum(by == 1) / len(by)
+        
+        class_weights = [1 - p_adj, p_adj]
+        level_idx = [np.where(by == level)[0] for level in [0, 1]]
+        boot = [np.random.choice(level_idx[i], 
+                                 size=int(class_weights[i] * size), 
+                                 replace=True) for i in range(2)]
         boot = np.concatenate(boot).ravel()
 
     if not return_df:
