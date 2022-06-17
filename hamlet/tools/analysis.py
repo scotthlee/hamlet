@@ -19,6 +19,7 @@ def sesp_to_obs(se, sp, p, N=1000):
     """Returns simulated target-prediction pairs from sensitivity, 
     specificity, prevalence, and total N.
     """
+    miss_dict = {True: 1, False: 0}    
     pairs = [[0, 0], [0, 1], [1, 0], [1, 1]]
     A = sp * (1- p)
     B = (1 - sp) * (1 - p)
@@ -26,7 +27,12 @@ def sesp_to_obs(se, sp, p, N=1000):
     D = se * p
     obs = []
     for i, prob in enumerate([A, B, C, D]):
-        obs += [int(prob * N) * [pairs[i]]]
+        count = round(prob * N)
+        if count >= 1:
+            obs += [count * [pairs[i]]]
+        else:
+            ob = [[[pairs[i][0], miss_dict[se > sp]]]]
+            obs += ob
     obs = pd.DataFrame(np.concatenate(obs, axis=0),
                        columns=['y', 'yhat'])
     return obs
@@ -82,6 +88,7 @@ def get_cutpoint(targets,
 
 
 def get_cutpoints(Y, Y_,
+                  p_adj=None,
                   out_type='dict',
                   column_names=None):
     """Returns the decision threhsolds for a set of multilable predictions.
@@ -96,8 +103,10 @@ def get_cutpoints(Y, Y_,
     else:
         column_names = Y.columns.values
     
-    cuts = [get_cutpoint(Y[c], Y_[c],
-                         out_type=out_type) for c in column_names]
+    cuts = [get_cutpoint(Y[c], Y_[c], 
+                         p_adj=p_adj[i], 
+                         out_type=out_type) 
+            for i, c in enumerate(column_names)]
     if out_type == 'dict':
         out = dict(zip(column_names, cuts))
     else:

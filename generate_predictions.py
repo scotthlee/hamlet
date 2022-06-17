@@ -33,7 +33,7 @@ if __name__ == '__main__':
                         binary classification model.')
     parser.add_argument('--multi_mod_dir',
                         type=str,
-                        default='output/multilabel/checkpoints/training/',
+                        default='output/findings/checkpoints/training/',
                         help='Path to the folder holding the trained \
                         multilabel classification model.')
     parser.add_argument('--bin_cut_csv',

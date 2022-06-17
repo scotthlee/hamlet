@@ -68,6 +68,7 @@ class boot_cis:
         # Getting the point estimates
         stat = ta.clf_metrics(targets,
                               guesses,
+                              p_adj=p_adj,
                               cutpoint=cutpoint,
                               average=average,
                               mcnemar=mcnemar).transpose()
@@ -89,7 +90,7 @@ class boot_cis:
         with Pool(processes=processes) as p:
             boot_input = [(targets, by, p_adj, seed) for seed in seeds]
             boots = p.starmap(ta.boot_sample, boot_input)
-            inputs = [(targets[boot], guesses[boot], cutpoint, p_adj) 
+            inputs = [(targets[boot], guesses[boot], cutpoint) 
                       for boot in boots]
             
             # Getting the bootstrapped metrics from the Pool
@@ -99,7 +100,7 @@ class boot_cis:
             p.join()
         
         # Optionally using the boot means as the main estimates
-        if p_adj:
+        if boot_mean:
             stat = scores.mean().to_frame()
         
         # Calculating the confidence intervals
