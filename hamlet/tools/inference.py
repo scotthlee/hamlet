@@ -63,6 +63,7 @@ def get_cutpoint(targets,
 
 
 def get_cutpoints(Y, Y_,
+                  p_adj=None,
                   out_type='dict',
                   column_names=None):
     """Returns the decision threhsolds for a set of multilable predictions.
@@ -77,8 +78,10 @@ def get_cutpoints(Y, Y_,
     else:
         column_names = Y.columns.values
     
-    cuts = [get_cutpoint(Y[c], Y_[c],
-                         out_type=out_type) for c in column_names]
+    cuts = [get_cutpoint(Y[c], Y_[c], 
+                         p_adj=p_adj[i], 
+                         out_type=out_type) 
+            for i, c in enumerate(column_names)]
     if out_type == 'dict':
         out = dict(zip(column_names, cuts))
     else:
