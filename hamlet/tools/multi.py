@@ -8,16 +8,18 @@ import pickle
 
 from sklearn.metrics import confusion_matrix, roc_curve
 from sklearn.model_selection import StratifiedKFold, cross_val_predict
-from scipy.stats import chi2, norm
+from scipy.stats import chi2, norm, binom
 from copy import deepcopy
 from multiprocessing import Pool
 
-from . import analysis as ta
+from . import inference as ti
+from . import metrics as tm
 
 
 def jackknife_metrics(targets, 
                       guesses,
                       cutpoint=0.5, 
+                      p_adj=None,
                       average='weighted',
                       processes=None):
     # Replicates of the dataset with one row missing from each
@@ -25,11 +27,11 @@ def jackknife_metrics(targets,
     j_rows = [np.delete(rows, row) for row in rows]
 
     # using a pool to get the metrics across each
-    inputs = [(targets[idx], guesses[idx], cutpoint, None, average)
+    inputs = [(targets[idx], guesses[idx], cutpoint, p_adj, average)
               for idx in j_rows]
     
     with Pool(processes=processes) as p:
-        stat_list = p.starmap(ta.clf_metrics, inputs)
+        stat_list = p.starmap(tm.clf_metrics, inputs)
     
     # Combining the jackknife metrics and getting their means
     scores = pd.concat(stat_list, axis=0)
@@ -64,49 +66,50 @@ class boot_cis:
             targets = targets.values
         if type(guesses) == stype:
             guesses = guesses.values
-
+        
         # Getting the point estimates
-        stat = ta.clf_metrics(targets,
+        stat = tm.clf_metrics(targets,
                               guesses,
+                              p_adj=p_adj,
                               cutpoint=cutpoint,
                               average=average,
                               mcnemar=mcnemar).transpose()
-
+        
         # Pulling out the column names to pass to the bootstrap dataframes
         colnames = list(stat.index.values)
-
+        
         # Making an empty holder for the output
         scores = pd.DataFrame(np.zeros(shape=(n, stat.shape[0])),
                               columns=colnames)
-
+        
         # Setting the seed
         if seed is None:
             seed = np.random.randint(0, 1e6, 1)
         np.random.seed(seed)
         seeds = np.random.randint(0, 1e6, n)
-
+        
         # Generating the bootstrap samples and metrics
         with Pool(processes=processes) as p:
             boot_input = [(targets, by, p_adj, seed) for seed in seeds]
-            boots = p.starmap(ta.boot_sample, boot_input)
+            boots = p.starmap(ti.boot_sample, boot_input)
             inputs = [(targets[boot], guesses[boot], cutpoint, p_adj) 
                       for boot in boots]
             
             # Getting the bootstrapped metrics from the Pool
-            p_output = p.starmap(ta.clf_metrics, inputs)
+            p_output = p.starmap(tm.clf_metrics, inputs)
             scores = pd.concat(p_output, axis=0)
             p.close()
             p.join()
         
         # Optionally using the boot means as the main estimates
-        if p_adj:
+        if boot_mean:
             stat = scores.mean().to_frame()
         
         # Calculating the confidence intervals
         lower = (a / 2) * 100
         upper = 100 - lower
         quantiles = (lower, upper)
-
+        
         # Making sure a valid method was chosen
         methods = ["pct", "diff", 'emp', "bca"]
         assert method in methods, "Method must be pct, diff, emp, or bca."
@@ -149,11 +152,6 @@ class boot_cis:
 
         # Or with method #3: the bias-corrected and accelerated bootstrap
         elif method == "bca":
-            # Checking that we're not doing weighted sampling
-            err_mess = 'Only methods "pct" and "diff" work with weighted \
-            sampling.'
-            assert p_adj is None, err_mess
-            
             # Calculating the bias-correction factor
             stat_vals = stat.transpose().values.ravel()
             n_less = np.sum(scores < stat_vals, axis=0)
@@ -167,6 +165,7 @@ class boot_cis:
             j = jackknife_metrics(targets,
                                   guesses,
                                   cutpoint,
+                                  p_adj,
                                   average,
                                   processes)
             diffs = j[1] - j[0]
@@ -223,7 +222,7 @@ def boot_roc(targets, scores, sample_by=None, n=1000, seed=10221983):
     # Getting the indices for the bootstrap samples
     p = Pool()
     boot_input = [(targets, sample_by, None, seed) for seed in seeds]
-    boots = p.starmap(ta.boot_sample, boot_input)
+    boots = p.starmap(ti.boot_sample, boot_input)
 
     # Getting the ROC curves
     roc_input = [(targets[boot], scores[boot]) for boot in boots]
