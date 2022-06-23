@@ -354,7 +354,7 @@ def boot_sample(df,
                                  size=int(class_weights[i] * size), 
                                  replace=True) for i in range(2)]
         boot = np.concatenate(boot).ravel()
-
+    
     if not return_df:
         return boot
     else:

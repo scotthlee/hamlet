@@ -43,9 +43,7 @@ def jackknife_metrics(targets,
 # Calculates bootstrap confidence intervals for an estimator
 class boot_cis:
     def __init__(
-        self,
-        targets,
-        guesses,
+        self, y, y_,
         sample_by=None,
         n=100,
         a=0.05,
@@ -62,14 +60,13 @@ class boot_cis:
         boot_mean=False):
         # Converting everything to NumPy arrays, just in case
         stype = type(pd.Series([0]))
-        if type(targets) == stype:
-            targets = targets.values
-        if type(guesses) == stype:
-            guesses = guesses.values
+        if type(y) == stype:
+            y = y.values
+        if type(y_) == stype:
+            y_ = y_.values
         
         # Getting the point estimates
-        stat = tm.clf_metrics(targets,
-                              guesses,
+        stat = tm.clf_metrics(y, y_,
                               p_adj=p_adj,
                               cutpoint=cutpoint,
                               average=average,
@@ -90,14 +87,17 @@ class boot_cis:
         
         # Generating the bootstrap samples and metrics
         with Pool(processes=processes) as p:
-            boot_input = [(targets, by, p_adj, seed) for seed in seeds]
-            boots = p.starmap(ti.boot_sample, boot_input)
-            inputs = [(targets[boot], guesses[boot], cutpoint, p_adj) 
-                      for boot in boots]
-            
-            # Getting the bootstrapped metrics from the Pool
-            p_output = p.starmap(tm.clf_metrics, inputs)
-            scores = pd.concat(p_output, axis=0)
+            if p_adj is not None:
+                p_vars = binom.rvs(y.shape[0], p_adj, size=n) / y.shape[0]
+            else:
+                p_vars = [None] * n
+            boot_input = [(y, y, p_vars[i], seed) 
+                          for i, seed in enumerate(seeds)]
+            boot_samples = p.starmap(ti.boot_sample, boot_input)
+            inputs = [(y[boot], y_[boot], cutpoint, None) 
+                      for i, boot in enumerate(boot_samples)]
+            res = p.starmap(tm.clf_metrics, inputs)
+            scores = pd.concat(res, axis=0)
             p.close()
             p.join()
         
@@ -125,6 +125,7 @@ class boot_cis:
                                columns=["lower", "upper"],
                                index=colnames)
         
+        # Or with method #2, the canonical "empirical" bootstrap
         elif method == 'emp':
             stat_vals = stat.transpose().values.ravel()
             diffs = scores.values - scores.values.mean(axis=0)
@@ -136,7 +137,7 @@ class boot_cis:
             cis.columns = ['lower', 'upper']
             cis.set_index(stat.index, inplace=True)
         
-        # Or with method #2: the percentiles of the difference between the
+        # Or with method #3: the percentiles of the difference between the
         # obesrved statistics and the bootstrapped statistics
         elif method == "diff":
             stat_vals = stat.transpose().values.ravel()
@@ -149,8 +150,8 @@ class boot_cis:
             upper_bound = pd.Series(stat_vals + percents[1])
             cis = pd.concat([lower_bound, upper_bound], axis=1)
             cis.set_index(stat.index, inplace=True)
-
-        # Or with method #3: the bias-corrected and accelerated bootstrap
+        
+        # Or with method #4: the bias-corrected and accelerated bootstrap
         elif method == "bca":
             # Calculating the bias-correction factor
             stat_vals = stat.transpose().values.ravel()
@@ -162,8 +163,7 @@ class boot_cis:
             z0[np.where(np.isinf(z0))[0]] = 0.0
 
             # Estiamating the acceleration factor
-            j = jackknife_metrics(targets,
-                                  guesses,
+            j = jackknife_metrics(y, y_,
                                   cutpoint,
                                   p_adj,
                                   average,
@@ -176,11 +176,11 @@ class boot_cis:
             zeros = np.where(denom == 0)[0]
             for z in zeros:
                 denom[z] += 1e-6
-
+            
             # Finishing up the acceleration parameter
             acc = numer / denom
             self.jack = j
-
+            
             # Calculating the bounds for the confidence intervals
             zl = norm.ppf(a / 2)
             zu = norm.ppf(1 - (a / 2))
@@ -202,15 +202,16 @@ class boot_cis:
             cis = pd.DataFrame(cis, 
                                columns=["lower", "upper"], 
                                index=colnames)
-
+        
         # Putting the stats with the lower and upper estimates
         cis = pd.concat([stat, cis], axis=1)
         cis.columns = ["stat", "lower", "upper"]
-
+        
         # Passing the results back up to the class
         self.cis = cis
         self.scores = scores
-
+        self.p_vars = p_vars
+        
         return
 
 
