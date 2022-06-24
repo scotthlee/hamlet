@@ -97,7 +97,7 @@ def sesp_to_obs(se, sp, p, N=1000):
     """Returns simulated target-prediction pairs from sensitivity, 
     specificity, prevalence, and total N.
     """
-    pairs = [[0, 0], [0, 1], [1, 0], [1, 1]]
+    pairs = [[0, 0], [1, 0], [0, 1], [1, 1]]
     D, C, A, B = sesp_to_counts(se, sp, p, N)
     obs = []
     for i, count in enumerate([A, B, C, D]):
@@ -105,28 +105,6 @@ def sesp_to_obs(se, sp, p, N=1000):
     obs = pd.DataFrame(np.concatenate(obs, axis=0),
                        columns=['y', 'yhat'])
     return obs
-
-
-def sesp_to_ppv(se, sp, p):
-    """Calculates PPV as a function of sensitivity, specificity, and 
-    prevalence.
-    """
-    return (se * p) / ((se * p) / ((1 - sp) * (1 - p)))
-
-
-def sesp_to_npv(se, sp, p):
-    """Calculates NPV as a function of sensitivity, specificity, and
-    prevalence.
-    """
-    pn = 1 - p
-    return (sp * pn) / ((sp * pn) / ((1 - se) * p))   
-
-
-def sesp_to_mcc(se, sp, p):
-    """Calculates Matthews Correlation Coefficient as a function of 
-    sensitivity, specificity, and prevalence.
-    """
-    return
 
 
 def sesp_to_counts(se, sp, p, N):
@@ -140,6 +118,28 @@ def sesp_to_counts(se, sp, p, N):
     tn = int(round(sp * Nn))
     fn = int(round((1 - se) * Np))
     return tp, fp, tn, fn    
+
+
+def sesp_to_ppv(se, sp, p):
+    """Calculates PPV as a function of sensitivity, specificity, and 
+    prevalence.
+    """
+    return (se * p) / ((se * p) + ((1 - sp) * (1 - p)))
+
+
+def sesp_to_npv(se, sp, p):
+    """Calculates NPV as a function of sensitivity, specificity, and
+    prevalence.
+    """
+    pn = 1 - p
+    return (sp * pn) / ((sp * pn) + ((1 - se) * p))   
+
+
+def sesp_to_mcc(se, sp, p):
+    """Calculates Matthews Correlation Coefficient as a function of 
+    sensitivity, specificity, and prevalence.
+    """
+    return
 
 
 def mcnemar_test(targets, guesses, cc=True):
@@ -272,6 +272,8 @@ def clf_metrics(y, y_,
     if p_adj is not None:
         reweighted = sesp_to_obs(sens, spec, p_adj, y.shape[0])
         y, y_ = reweighted['y'].values, reweighted['yhat'].values
+    else:
+        p_adj = y.sum() / y.shape[0]
     
     # Calculating the main binary metrics
     ppv = positive_predictive_value(y, y_).round(round)
@@ -281,7 +283,7 @@ def clf_metrics(y, y_,
     j = np.round(sens + spec - 1, round)
     
     # Getting the counts
-    p = np.sum(y == 1) / y.shape[0]
+    p = y.sum() / y.shape[0]
     if p_adj is not None:
         p = p_adj
     
