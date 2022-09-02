@@ -1,5 +1,6 @@
 import numpy as np
 import scipy as sp
+import pandas as pd
 import argparse
 import cv2
 import os
@@ -11,6 +12,8 @@ from skimage import transform, exposure
 from skimage.color import rgb2gray
 from PIL import Image, ImageChops
 from pydicom.pixel_data_handlers.util import apply_voi_lut, apply_modality_lut
+
+from .image import rescale, trim, good_brightness
 
 
 def good_dicom(ds):
@@ -26,17 +29,24 @@ def good_dicom(ds):
     """
     bad_id = False
     bad_image = False
-    no_tsid = 'TransferSyntaxUID' not in ds.file_meta
+    bad_pixels = False
+    
+    # Checking the transfer syntax ID
+    no_tsid = 'TransferSyntaxUID' not in ds.file_meta 
     if not no_tsid:
         tsid = ds.file_meta.TransferSyntaxUID
         if tsid in ['1.2.840.10008.1.2.4.53', '1.2.840.10008.1.2.4.55']:
             bad_id = True
+    
+    # Checking the pixel data
     no_pixels = ('PixelData' not in ds or 'PhotometricInterpretation' not in ds)
-    try:
-        ds.pixel_array
-    except:
-        bad_pixels = True
-
+    if not no_pixels: 
+        try:
+            ds.pixel_array
+        except:
+            bad_pixels = True
+    
+    # Gathering the info
     conditions = [no_tsid, bad_id, no_pixels, bad_pixels]
     if np.any(conditions):
         condition_ints = np.array(conditions, dtype=np.uint8)
@@ -54,8 +64,7 @@ def convert_to_png(file,
                    write_image=True,
                    bff=None,
                    use_modality_lut=False,
-                   use_voi_lut=True,
-                   bff=None):
+                   use_voi_lut=True):
     """Extracts the image in a DICOM file to .png.
 
     Parameters
@@ -90,8 +99,11 @@ def convert_to_png(file,
 
     if not good_file:
         if bff:
-            report = pd.DataFrame([file] + errors + [0, 0]).transpose()
-            report.to_csv(bff, mode='a', header=False)
+            report = [prefix, file] + errors + [0, 0]
+            pd.DataFrame(report).transpose().to_csv(bff,
+                                                    mode='a',
+                                                    index=False,
+                                                    header=False)
         return
     else:
         # Convert to float to avoid overflow or underflow losses.
@@ -140,16 +152,18 @@ def convert_to_png(file,
             else:
                 image = np.invert(image[:, :, :-1])
             if bff:
-                report = [file] + [0, 0, 0, 0] + [1, 0]
+                report = [prefix, file] + [0, 0, 0, 0] + [1, 0]
                 pd.DataFrame(report).transpose().to_csv(bff,
                                                         mode='a',
+                                                        index=False,
                                                         header=False)
 
         # Final check for images that are too bright or dark
-        if not good_brightness(img):
-            report = [file] + [0, 0, 0, 0] + [0, 1]
+        if not good_brightness(image):
+            report = [prefix, file] + [0, 0, 0, 0] + [0, 1]
             pd.DataFrame(report).transpose().to_csv(bff,
                                                     mode='a',
+                                                    index=False,
                                                     header=False)
             return
         else:

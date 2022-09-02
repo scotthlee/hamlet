@@ -12,7 +12,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--dicom_dir',
                         type=str,
-                        default='X:/DICOMM/Immigrant/',
+                        default='X:/DICOMM/Immigrant/20220201/',
                         help='directory holding the DICOM files')
     parser.add_argument('--img_dir',
                         type=str,
