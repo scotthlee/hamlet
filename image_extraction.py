@@ -35,10 +35,10 @@ if __name__ == '__main__':
                         type=int,
                         default=-1,
                         help='number of processes for the Pool')
-    parser.set_defaults(overwrite=False, 
+    parser.set_defaults(overwrite=False,
                         convert_PR=False)
     args = parser.parse_args()
-    
+
     PROCESSES = args.processes if args.processes != -1 else None
     CONVERT_PR = args.convert_PR
     NUM_FILES = args.num_files
@@ -46,27 +46,28 @@ if __name__ == '__main__':
     IMG_DIR = args.img_dir
     PREFIX = args.prefix
     OVERWRITE = args.overwrite
-    
+
     # Making the list of files; default is to convert new ones only
     to_convert = [f for f in os.listdir(DICOM_DIR) if 'dcm' in f]
-    
+
     if not CONVERT_PR:
         to_convert = [f for f in to_convert if '_PR' not in f]
-    
+
     if not OVERWRITE:
         img_files = [f for f in os.listdir(IMG_DIR)]
         img_files = [f.replace('png', 'dcm') for f in img_files]
         to_convert = np.setdiff1d(to_convert, img_files)
-    
+
     if NUM_FILES == -1:
         NUM_FILES = len(to_convert)
-    
+
     files = [f for f in to_convert][:NUM_FILES]
     print(len(files))
-    
+
     with Pool(PROCESSES) as p:
-        input = [(f, DICOM_DIR, IMG_DIR, PREFIX, 1024) for f in files]
+        input = [(f, DICOM_DIR, IMG_DIR,
+                  PREFIX, 1024, False, 'X:/DICOMM/bad_files.csv')
+                 for f in files]
         output = p.starmap(convert_to_png, input)
         p.close()
         p.join()
-    
