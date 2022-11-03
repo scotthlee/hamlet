@@ -9,7 +9,6 @@ from tensorflow.keras import backend as K
 from tensorflow.keras import layers, callbacks
 from tensorflow.keras.preprocessing.image import ImageDataGenerator
 
-import hamlet.tools.analysis as ta
 from hamlet import models
 
 

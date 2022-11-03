@@ -148,8 +148,11 @@ fname_dict = dict(zip(fnames, short_fnames))
 # Building the splits
 has_img = check_fnames(all_df.id.values.astype('str'), 
                        short_fnames)
+fnames = [fnames[i] for i in np.where(has_image == 1)[0]]
+fname_dict = dict(zip([f[:-4] for f in fnames], fnames))
 samp_df = all_df.iloc[has_img, :].drop_duplicates(subset='id')
 ids = samp_df.id.values.astype('str')
+samp_df['file'] = [fname_dict[id] for id in ids]
 
 sites = samp_df.panel_site.values.astype('str')
 good_sites = [
