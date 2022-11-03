@@ -9,7 +9,7 @@ from hamlet.tools.generic import check_fnames, trim_zeroes
 
 SEED = 2022
 TEST_N = 8000
-ADD_NEW_ONLY = True
+ADD_NEW_ONLY = False
 
 # Setting the directorires
 base_dir = 'D:/data/hamlet/'
@@ -108,13 +108,24 @@ class_cols = [
 ]
 all_cols = demo_cols + abn_col + find_cols + test_cols + class_cols
 
-# Merging the datasets and saving the result
+# Merging the datasets
 non_iom = [df[all_cols] for df in non_iom]
 non_iom = [df.iloc[:, ~df.columns.duplicated()] for df in non_iom]
 non_iom = pd.concat(non_iom, axis=0)
 all_df = pd.concat([iom[all_cols], non_iom], axis=0)
 all_df['abnormal_tb'] = np.array(all_df[find_cols].sum(axis=1) > 0,
-                                 dtype=np.uint8))
+                                 dtype=np.uint8)
+
+# Dropping data from entrants under 15 years old
+all_df['exam_date'] = pd.to_datetime(all_df.exam_date, errors='coerce')
+all_df['date_of_birth'] = pd.to_datetime(all_df.date_of_birth, errors='coerce')
+all_df.dropna(axis=0, inplace=True, subset=['exam_date', 'date_of_birth'])
+ages = all_df.exam_date - all_df.date_of_birth
+days = ages.dt.days.values
+adults = np.where(days >= (15 * 365))[0]
+all_df = all_df.iloc[adults, :].reset_index(drop=True)
+
+# Saving the dataset to file
 all_df.to_csv(base_dir + 'all.csv', index=False)
 
 # And finally moving the images into their respective folders
