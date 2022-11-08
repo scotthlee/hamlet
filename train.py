@@ -166,7 +166,7 @@ if __name__ == '__main__':
     
     # Setting up callbacks and metrics
     tr_callbacks = [
-        callbacks.EarlyStopping(patience=1,
+        callbacks.EarlyStopping(patience=2,
                                 mode=METRIC_MODE,
                                 monitor=METRIC,
                                 restore_best_weights=True,

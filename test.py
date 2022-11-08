@@ -9,7 +9,8 @@ from tensorflow.keras import backend as K
 from tensorflow.keras import layers, callbacks
 from tensorflow.keras.preprocessing.image import ImageDataGenerator
 
-import hamlet.tools.analysis as ta
+from hamlet.tools import metrics as tm
+from hamlet.tools import inference as ti
 from hamlet import models
 
 
@@ -139,7 +140,7 @@ if __name__ == '__main__':
     if NUM_CLASSES == 1:
         if not OTHER_ONLY:
             val_probs = mod.predict(val_gen, verbose=1).flatten()        
-            cuts = ta.get_cutpoint(val[LABEL_COL], val_probs)
+            cuts = ti.get_cutpoint(val[LABEL_COL], val_probs)
             
             # Writing validation the predictions
             val['abnormal_prob'] = val_probs
@@ -148,13 +149,13 @@ if __name__ == '__main__':
             # Writing the test predictions
             test_probs = mod.predict(test_gen, verbose=1).flatten()
             test['abnormal_prob'] = test_probs
-            test['abnormal_j'] = ta.threshold(test_probs, cuts['j'])
-            test['abnormal_count'] = ta.threshold(test_probs, cuts['count'])
-            test['abnormal_adj'] = ta.threshold(test_probs, cuts['count_adj'])
+            test['abnormal_j'] = tm.threshold(test_probs, cuts['j'])
+            test['abnormal_count'] = tm.threshold(test_probs, cuts['count'])
+            test['abnormal_adj'] = tm.threshold(test_probs, cuts['count_adj'])
             test.to_csv(STATS_DIR + 'test_probs.csv')
             
             # And getting the test statistics
-            stats = [ta.clf_metrics(test[LABEL_COL], test_probs, cuts[s])
+            stats = [tm.clf_metrics(test[LABEL_COL], test_probs, cuts[s])
                      for s in ['j', 'count', 'count_adj']]
             stats = pd.concat(stats, axis=0)
             stats['cutpoint'] = list(cuts.values())
@@ -183,7 +184,7 @@ if __name__ == '__main__':
                                                               img_width),
                                                  batch_size=BATCH_SIZE)
             nih_preds = mod.predict(nih_gen, verbose=1).flatten()
-            nih_stats = ta.clf_metrics(nih_df.Abnormal.values,
+            nih_stats = tm.clf_metrics(nih_df.Abnormal.values,
                                        nih_preds,
                                        cutpoint=cut)
             
@@ -202,7 +203,7 @@ if __name__ == '__main__':
                                                             img_width),
                                                batch_size=BATCH_SIZE)
             sh_preds = mod.predict(sh_gen, verbose=1).flatten()
-            sh_stats = ta.clf_metrics(sh_df.abnormal.values,
+            sh_stats = tm.clf_metrics(sh_df.abnormal.values,
                                       sh_preds,
                                       cutpoint=cut)
             
@@ -221,7 +222,7 @@ if __name__ == '__main__':
                                                             img_width),
                                                batch_size=BATCH_SIZE)
             mc_preds = mod.predict(mc_gen, verbose=1).flatten()
-            mc_stats = ta.clf_metrics(mc_df.abnormal.values,
+            mc_stats = tm.clf_metrics(mc_df.abnormal.values,
                                       mc_preds,
                                       cutpoint=cut)
             
@@ -236,8 +237,8 @@ if __name__ == '__main__':
                                  columns=LABEL_COL)
         test_preds = pd.DataFrame(mod.predict(test_gen, verbose=1),
                                   columns=LABEL_COL)
-        cuts = ta.get_cutpoints(val[LABEL_COL], val_preds)
-        stats = [ta.clf_metrics(test[f], 
+        cuts = ti.get_cutpoints(val[LABEL_COL], val_preds)
+        stats = [tm.clf_metrics(test[f], 
                                 test_preds[f], 
                                 cutpoint=cuts[f]['j'])
                  for f in LABEL_COL]

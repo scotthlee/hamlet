@@ -123,6 +123,8 @@ all_df.dropna(axis=0, inplace=True, subset=['exam_date', 'date_of_birth'])
 ages = all_df.exam_date - all_df.date_of_birth
 days = ages.dt.days.values
 adults = np.where(days >= (15 * 365))[0]
+kids = np.where(days < (15*365))[0]
+all_df.iloc[kids, :].to_csv(base_dir + 'kids.csv', index=False)
 all_df = all_df.iloc[adults, :].reset_index(drop=True)
 
 # Saving the dataset to file
