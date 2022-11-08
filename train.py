@@ -53,7 +53,7 @@ if __name__ == '__main__':
                         type=int,
                         default=4,
                         help='Minibatch size for model training and inference.')
-    parser.add_argument('--progressive', 
+    parser.add_argument('--progressive',
                         action='store_true',
                         help='Whether to progressively unfreeze blocks during \
                         fine-tuning (for models that do not fit in GPU \
@@ -77,10 +77,13 @@ if __name__ == '__main__':
                         default='min',
                         help='Whether to min or max the metric',
                         choices=['min', 'max'])
-    parser.set_defaults(no_augmentation=False, 
+    parser.add_argument('--distributed',
+                        action='store_true',
+                        help='Turns on distributed (multi-GPU) training')
+    parser.set_defaults(no_augmentation=False,
                         progressive=False)
     args = parser.parse_args()
-    
+
     # Parameters
     BASE_TRAIN = args.training_type in ['base', 'both']
     FINE_TUNE = args.training_type in ['fine_tune', 'both']
@@ -93,20 +96,21 @@ if __name__ == '__main__':
     TASK = args.task
     METRIC = args.metric
     METRIC_MODE = args.metric_mode
-    
+    DISTRIBUTED = args.distributed
+
     # Directories
     BASE_DIR = args.data_dir
     OUT_DIR = 'output/' + args.task + '/'
     CHECK_DIR = OUT_DIR + 'checkpoints/'
     LOG_DIR = OUT_DIR + 'logs/'
     TRAIN_MOD_FOLDER = args.train_mod_folder
-    
+
     # Just some info
     if AUGMENT:
         print('Augmentation on.')
     if ALL_BLOCKS:
         print('Training all blocks.\n')
-    
+
     # Reading the labels
     records = pd.read_csv(BASE_DIR + args.csv_name, encoding='latin')
     if TASK == 'findings':
@@ -120,13 +124,13 @@ if __name__ == '__main__':
     else:
         LABEL_COL = TASK
         NUM_CLASSES = 1
-    
+
     records[LABEL_COL] = records[LABEL_COL].fillna(0).astype(np.uint8)
     train = records[records.split == 'train'].reset_index(drop=True)
     val = records[records.split == 'val'].reset_index(drop=True)
     test = records[records.split == 'test'].reset_index(drop=True)
     dfs = [train, val, test]
-    
+
     # Parameters for the data loader
     img_height = 600
     img_width = 600
@@ -140,7 +144,7 @@ if __name__ == '__main__':
                                          y_col=LABEL_COL,
                                          class_mode='raw',
                                          shuffle=False,
-                                         target_size=(img_height, 
+                                         target_size=(img_height,
                                                       img_width),
                                          batch_size=BATCH_SIZE)
 
@@ -151,19 +155,28 @@ if __name__ == '__main__':
                                              x_col='file',
                                              y_col=LABEL_COL,
                                              class_mode='raw',
-                                             target_size=(img_height, 
+                                             target_size=(img_height,
                                                           img_width),
                                              batch_size=BATCH_SIZE)
-    
-    # Setting up a fresh model
-    mod = models.EfficientNet(num_classes=NUM_CLASSES,
-                              img_height=img_height,
-                              img_width=img_width,
-                              augmentation=AUGMENT,
-                              learning_rate=1e-4,
-                              model_flavor=MODEL_FLAVOR,
-                              effnet_trainable=ALL_BLOCKS)
-    
+    # Setting training strategy
+    if DISTRIBUTED:
+        print('Using multiple GPUs.\n')
+        cdo = tf.distribute.HierarchicalCopyAllReduce()
+        strategy = tf.distribute.MirroredStrategy(cross_device_ops=cdo)
+
+    else:
+        strategy = tf.distribute.get_strategy()
+
+    with strategy.scope():
+        # Setting up a fresh model
+        mod = models.EfficientNet(num_classes=NUM_CLASSES,
+                                  img_height=img_height,
+                                  img_width=img_width,
+                                  augmentation=AUGMENT,
+                                  learning_rate=1e-4,
+                                  model_flavor=MODEL_FLAVOR,
+                                  effnet_trainable=ALL_BLOCKS)
+
     # Setting up callbacks and metrics
     tr_callbacks = [
         callbacks.EarlyStopping(patience=2,
@@ -174,14 +187,14 @@ if __name__ == '__main__':
         callbacks.ModelCheckpoint(filepath=CHECK_DIR + 'training/',
                                   save_weights_only=True,
                                   mode=METRIC_MODE,
-                                  monitor=METRIC, 
+                                  monitor=METRIC,
                                   save_best_only=True),
         callbacks.TensorBoard(log_dir=LOG_DIR + 'training/')
     ]
-    
+
     if TRAIN_MOD_FOLDER:
         mod.load_weights(CHECK_DIR + TRAIN_MOD_FOLDER)
-    
+
     if BASE_TRAIN:
         mod.fit(train_gen,
                 validation_data=val_gen,
@@ -203,24 +216,24 @@ if __name__ == '__main__':
                                       save_best_only=True),
             callbacks.TensorBoard(log_dir=LOG_DIR + 'fine_tuning/')
         ]
-        
+
         # Layer numbers for the block breaks
         b0_blocks = [20, 78, 121, 165, 194]
         b7_blocks = [64, 258, 406, 555, 659, 763]
-        
+
         # Dropping the learning rate so things don't blow up
         K.set_value(mod.optimizer.learning_rate, 4e-4)
-        
+
         # Progressively fine-tuning the blocks
         if not PROGRESSIVE:
             b7_blocks = [b7_blocks[STARTING_BLOCK]]
             STARTING_BLOCK = 0
-        
+
         for b in b7_blocks[STARTING_BLOCK:]:
             for layer in mod.layers[-b:]:
                 if not isinstance(layer, layers.BatchNormalization):
                     layer.trainable = True
-            
+
             mod.fit(train_gen,
                     validation_data=val_gen,
                     epochs=20,
