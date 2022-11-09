@@ -12,7 +12,7 @@ TEST_N = 8000
 ADD_NEW_ONLY = False
 
 # Setting the directorires
-base_dir = 'D:/data/hamlet/'
+base_dir = 'C:/Users/yle4/data/hamlet/'
 ds_dir = base_dir + 'misc/labels/'
 
 if ADD_NEW_ONLY:
@@ -34,7 +34,7 @@ if ADD_NEW_ONLY:
      for f in [new_files[i] for i in args2]]
 
 # Reading the source Excel files
-panels = [pd.read_csv(ds_dir + 'panel/' + f, encoding='latin') 
+panels = [pd.read_csv(ds_dir + 'panel/' + f, encoding='latin')
           for f in os.listdir(ds_dir + 'panel/')]
 for df in panels:
     ids = ['pan_' + s for s in df.ID.values.astype('str')]
@@ -48,6 +48,7 @@ refugee.ID = ['ref_' + s for s in refugee.ID.astype('str')]
 
 non_iom = panels + [immigrant, refugee]
 iom = pd.read_csv(ds_dir + 'iom.csv')
+iom['sex'] = 'na'
 
 # Renaming columns
 col_dict = {'ID': 'id',
@@ -89,8 +90,8 @@ for df in non_iom:
 # Pulling out columns to make a combined dataset
 abn_col = ['abnormal']
 demo_cols = [
-    'id', 'exam_country', 'exam_date', 
-    'date_of_birth', 'panel_site'
+    'id', 'exam_country', 'exam_date',
+    'date_of_birth', 'panel_site', 'sex'
 ]
 find_cols = [
     'infiltrate', 'reticular', 'cavity',
@@ -122,33 +123,32 @@ all_df['date_of_birth'] = pd.to_datetime(all_df.date_of_birth, errors='coerce')
 all_df.dropna(axis=0, inplace=True, subset=['exam_date', 'date_of_birth'])
 ages = all_df.exam_date - all_df.date_of_birth
 days = ages.dt.days.values
-adults = np.where(days >= (15 * 365))[0]
-kids = np.where(days < (15*365))[0]
+all_df['age_days'] = days
+adults = np.where(days >= 15*365)[0]
+kids = np.where(days < 15*365)[0]
 all_df.iloc[kids, :].to_csv(base_dir + 'kids.csv', index=False)
 all_df = all_df.iloc[adults, :].reset_index(drop=True)
 
 # Saving the dataset to file
 all_df.to_csv(base_dir + 'all.csv', index=False)
-
-# And finally moving the images into their respective folders
-train_dir = base_dir + 'train/img/'
-fnames = os.listdir(train_dir)
+presplit_dir = base_dir + 'presplit/'
+fnames = os.listdir(presplit_dir)
 short_fnames = [s[:-4] for s in fnames]
 
 # Quick check for images with no record
 ids = all_df.id.values.astype('str')
 has_record = check_fnames(short_fnames, ids)
 no_record = np.where(has_record == False)[0]
-[os.rename(train_dir + fnames[i],
-           base_dir + 'source/no_record/' + fnames[i])
+[os.rename(presplit_dir + fnames[i],
+           base_dir + 'source/bad/no_record/' + fnames[i])
  for i in no_record]
 
-fnames = os.listdir(train_dir)
+fnames = os.listdir(presplit_dir)
 short_fnames = [s[:-4] for s in fnames]
 fname_dict = dict(zip(fnames, short_fnames))
 
 # Building the splits
-has_img = check_fnames(all_df.id.values.astype('str'), 
+has_img = check_fnames(all_df.id.values.astype('str'),
                        short_fnames)
 fnames = [fnames[i] for i in np.where(has_image == 1)[0]]
 fname_dict = dict(zip([f[:-4] for f in fnames], fnames))
@@ -158,11 +158,11 @@ samp_df['file'] = [fname_dict[id] for id in ids]
 
 sites = samp_df.panel_site.values.astype('str')
 good_sites = [
-              'Cho Ray', 'ASVIET1', 'Luke', 
+              'Cho Ray', 'ASVIET1', 'Luke',
               'ASPHIL1', 'Consultorios de Visa', 'AMDOMI1',
               'AMDOMI2', 'Servicios Medicos Consulares', 'AMMEXI1',
               'Clinica Medical Internacional', 'AMMEXI2',
-              'Medicos Especializados', 'AMMEXI3', 
+              'Medicos Especializados', 'AMMEXI3',
               'Servicios Medicos de la Frontera'
 ]
 good_any = np.array([s in good_sites for s in sites], dtype=np.uint8)
@@ -177,14 +177,14 @@ ref_nrm = np.array((good_any == 1) & (abn == 0),
                    dtype=np.uint8)
 
 np.random.seed(SEED)
-ref_abn_samp = np.random.choice(np.where(ref_abn == 1)[0], 
-                                 size=TEST_N, 
-                                 replace=False)
-ref_nrm_samp = np.random.choice(np.where(ref_nrm == 1)[0], 
+ref_abn_samp = np.random.choice(np.where(ref_abn == 1)[0],
                                  size=TEST_N,
                                  replace=False)
-val_samp = np.random.choice(range(TEST_N), 
-                            size=int(TEST_N / 2), 
+ref_nrm_samp = np.random.choice(np.where(ref_nrm == 1)[0],
+                                 size=TEST_N,
+                                 replace=False)
+val_samp = np.random.choice(range(TEST_N),
+                            size=int(TEST_N / 2),
                             replace=False)
 test_samp = np.setdiff1d(range(TEST_N), val_samp)
 
@@ -204,8 +204,7 @@ samp_df.to_csv(base_dir + 'samp.csv', index=False)
 split_dict = dict(zip(samp_df.id.values,
                       samp_df.split.values))
 
-for fn in fnames:
-    ds = split_dict[fn[:-4]]
-    if ds != 'train':
-        path = base_dir + ds + '/img/'
-        os.rename(train_dir + fn, path + fn)
+for f in samp_df.file.values:
+    ds = split_dict[f[:-4]]
+    path = base_dir + ds + '/img/'
+    os.rename(presplit_dir + f, path + f)
