@@ -116,19 +116,8 @@ if __name__ == '__main__':
         print('Using multiple GPUs.\n')
         cdo = tf.distribute.HierarchicalCopyAllReduce()
         strategy = tf.distribute.MirroredStrategy(cross_device_ops=cdo)
-
     else:
         strategy = tf.distribute.get_strategy()
-
-    with strategy.scope():
-        # Setting up a fresh model
-        mod = models.EfficientNet(num_classes=NUM_CLASSES,
-                                  img_height=img_height,
-                                  img_width=img_width,
-                                  augmentation=AUGMENT,
-                                  learning_rate=1e-4,
-                                  model_flavor=MODEL_FLAVOR,
-                                  effnet_trainable=ALL_BLOCKS)
 
     # Reading the labels
     records = pd.read_csv(BASE_DIR + args.csv_name, encoding='latin')
@@ -193,6 +182,16 @@ if __name__ == '__main__':
         callbacks.TensorBoard(log_dir=LOG_DIR + 'training/')
     ]
 
+    with strategy.scope():
+        # Setting up a fresh model
+        mod = models.EfficientNet(num_classes=NUM_CLASSES,
+                                  img_height=img_height,
+                                  img_width=img_width,
+                                  augmentation=AUGMENT,
+                                  learning_rate=1e-4,
+                                  model_flavor=MODEL_FLAVOR,
+                                  effnet_trainable=ALL_BLOCKS)
+    
     if TRAIN_MOD_FOLDER:
         mod.load_weights(CHECK_DIR + TRAIN_MOD_FOLDER)
 
