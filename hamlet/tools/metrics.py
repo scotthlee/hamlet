@@ -20,7 +20,7 @@ def brier_score(targets, guesses):
         y = onehot_matrix(targets)
         row_diffs = np.diff((guesses, y), axis=0)[0]
         squared_diffs = row_diffs ** 2
-        row_sums = np.sum(squared_diffs, axis=1) 
+        row_sums = np.sum(squared_diffs, axis=1)
         bs = row_sums.mean()
     return bs
 
@@ -94,21 +94,22 @@ def youdens_j(y, y_, a=1, b=1):
 
 
 def sesp_to_obs(se, sp, p, N=1000):
-    """Returns simulated target-prediction pairs from sensitivity, 
+    """Returns simulated target-prediction pairs from sensitivity,
     specificity, prevalence, and total N.
     """
     pairs = [[0, 0], [1, 0], [0, 1], [1, 1]]
     D, C, A, B = sesp_to_counts(se, sp, p, N)
     obs = []
     for i, count in enumerate([A, B, C, D]):
-        obs += [count * [pairs[i]]]
+        if count > 0:
+            obs += [count * [pairs[i]]]
     obs = pd.DataFrame(np.concatenate(obs, axis=0),
                        columns=['y', 'yhat'])
     return obs
 
 
 def sesp_to_counts(se, sp, p, N):
-    """Calculates the counts in a 2x2 contingency table as a function of 
+    """Calculates the counts in a 2x2 contingency table as a function of
     sensitivity, specificity, and prevalence.
     """
     Np = int(round(p * N))
@@ -117,11 +118,11 @@ def sesp_to_counts(se, sp, p, N):
     fp = int(round((1 - sp) * Nn))
     tn = int(round(sp * Nn))
     fn = int(round((1 - se) * Np))
-    return tp, fp, tn, fn    
+    return tp, fp, tn, fn
 
 
 def sesp_to_ppv(se, sp, p):
-    """Calculates PPV as a function of sensitivity, specificity, and 
+    """Calculates PPV as a function of sensitivity, specificity, and
     prevalence.
     """
     return (se * p) / ((se * p) + ((1 - sp) * (1 - p)))
@@ -132,11 +133,11 @@ def sesp_to_npv(se, sp, p):
     prevalence.
     """
     pn = 1 - p
-    return (sp * pn) / ((sp * pn) + ((1 - se) * p))   
+    return (sp * pn) / ((sp * pn) + ((1 - se) * p))
 
 
 def sesp_to_mcc(se, sp, p):
-    """Calculates Matthews Correlation Coefficient as a function of 
+    """Calculates Matthews Correlation Coefficient as a function of
     sensitivity, specificity, and prevalence.
     """
     return
@@ -168,7 +169,7 @@ def brier_score(targets, guesses):
         y = onehot_matrix(targets)
         row_diffs = np.diff((guesses, y), axis=0)[0]
         squared_diffs = row_diffs ** 2
-        row_sums = np.sum(squared_diffs, axis=1) 
+        row_sums = np.sum(squared_diffs, axis=1)
         bs = row_sums.mean()
     return bs
 
@@ -188,22 +189,22 @@ def clf_metrics(y, y_,
         y_ = y_.values
     if type(y) == stype:
         y = y.values
-    
+
     # Figuring out if the guesses are classes or probabilities
     if np.any([0 < p < 1 for p in y_.flatten()]):
         preds_are_probs = True
     else:
         preds_are_probs = False
-    
+
     # Optional exit for doing averages with multiclass/label inputs
     if len(np.unique(y)) > 2:
         # Getting binary metrics for each set of results
         codes = np.unique(y)
-        
+
         # Softmaxing the probabilities if it hasn't already been done
         if np.sum(y_[0]) > 1:
             y_ = np.array([np.exp(p) / np.sum(np.exp(p)) for p in y_])
-        
+
         # Argmaxing for when we have probabilities
         if preds_are_probs:
             auc = roc_auc_score(y, y_,
@@ -211,13 +212,13 @@ def clf_metrics(y, y_,
                                 multi_class='ovr')
             brier = brier_score(y, y_)
             y_ = np.argmax(y_, axis=argmax_axis)
-        
-        # Making lists of the binary predictions (OVR)    
+
+        # Making lists of the binary predictions (OVR)
         y = [np.array([doc == code for doc in y], dtype=np.uint8)
              for code in codes]
         y_ = [np.array([doc == code for doc in y_], dtype=np.uint8)
               for code in codes]
-        
+
         # Getting the stats for each set of binary predictions
         stats = [clf_metrics(y[i], y_[i], round=16) for i in range(len(y))]
         stats = pd.concat(stats, axis=0)
@@ -226,7 +227,7 @@ def clf_metrics(y, y_,
 
         # Calculating the averaged metrics
         if average == 'weighted':
-            weighted = np.average(stats, 
+            weighted = np.average(stats,
                                   weights=stats.true_prev,
                                   axis=0)
             out = pd.DataFrame(weighted).transpose()
@@ -236,12 +237,12 @@ def clf_metrics(y, y_,
         elif average == 'micro':
             out = clf_metrics(np.concatenate(y),
                               np.concatenate(y_))
-        
+
         # Adding AUC and AP for when we have probabilities
         if preds_are_probs:
             out.auc = auc
             out.brier = brier
-        
+
         # Rounding things off
         out = out.round(round)
         count_cols = [
@@ -249,12 +250,12 @@ def clf_metrics(y, y_,
             'pred_prev', 'prev_diff'
         ]
         out[count_cols] = out[count_cols].round()
-        
+
         if mod_name is not None:
             out['model'] = mod_name
-        
+
         return out
-    
+
     # Thresholding the probabilities, if provided
     if preds_are_probs:
         auc = roc_auc_score(y, y_)
@@ -263,41 +264,41 @@ def clf_metrics(y, y_,
         y_ = threshold(y_, cutpoint)
     else:
         brier = np.round(brier_score(y, y_), round)
-    
+
     # Doing sens and spec first
     sens = sensitivity(y, y_).round(round)
     spec = specificity(y, y_).round(round)
-    
+
     # Optionally making a reweighted sample
     if p_adj is not None:
         reweighted = sesp_to_obs(sens, spec, p_adj, y.shape[0])
         y, y_ = reweighted['y'].values, reweighted['yhat'].values
     else:
         p_adj = y.sum() / y.shape[0]
-    
+
     # Calculating the main binary metrics
     ppv = positive_predictive_value(y, y_).round(round)
     npv = negative_predictive_value(y, y_).round(round)
     mcc = matthews_correlation(y, y_).round(round)
     f1 = np.round(2 * ppv * npv / (ppv + npv), round)
     j = np.round(sens + spec - 1, round)
-    
+
     # Getting the counts
     p = y.sum() / y.shape[0]
     if p_adj is not None:
         p = p_adj
-    
+
     tp, fp, tn, fn = sesp_to_counts(sens, spec, p, y.shape[0])
-    
+
     # Rolling everything so far into a dataframe
     outmat = np.array(
         [tp, fp, tn, fn, sens, spec, ppv, npv, j, f1, mcc,
          brier]).reshape(-1, 1)
     out = pd.DataFrame(outmat.transpose(),
-                       columns=['tp', 'fp', 'tn', 
+                       columns=['tp', 'fp', 'tn',
                                 'fn', 'sens', 'spec', 'ppv',
                                 'npv', 'j', 'f1', 'mcc', 'brier'])
-    
+
     # Optionally tacking on stats from the raw probabilities
     if preds_are_probs:
         out['auc'] = auc
@@ -305,7 +306,7 @@ def clf_metrics(y, y_,
     else:
         out['auc'] = 0.0
         out['ap'] = 0.0
-    
+
     # Calculating some additional measures based on positive calls
     true_prev = int(np.sum(y == 1))
     pred_prev = int(np.sum(y_ == 1))
@@ -321,13 +322,13 @@ def clf_metrics(y, y_,
         count_outmat.transpose(),
         columns=['true_prev', 'pred_prev', 'prev_diff', 'rel_prev_diff'])
     out = pd.concat([out, count_out], axis=1)
-    
+
     # Optionally dropping the mcnemar p-val
     if mcnemar:
         out['mcnemar'] = pval
-    
+
     # And finally tacking on the model name
     if mod_name is not None:
         out['model'] = mod_name
-    
+
     return out

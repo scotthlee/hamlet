@@ -12,19 +12,19 @@ from multiprocessing import Pool
 from . import metrics as tm
 from . import generic as tg
 
-        
+
 def roc_point_to_count_diff(tpr, fpr, p):
-    """Calculates the difference between true prevalence and predicted 
-    prevalence based on the model's sensitivity and specificity, and 
-    the population's true number of positives and negatives.    
+    """Calculates the difference between true prevalence and predicted
+    prevalence based on the model's sensitivity and specificity, and
+    the population's true number of positives and negatives.
     """
     out = np.abs((fpr * (1 - p)) - ((1 - tpr) * p))
     return out
 
 
 def count_cutpoint_from_roc_curve(roc, p):
-    """Finds the decision threshold that minimizes the difference betwee 
-    true prevalence and predicted prevalence based on error rates from 
+    """Finds the decision threshold that minimizes the difference betwee
+    true prevalence and predicted prevalence based on error rates from
     a ROC curve.
     """
     diffs = [roc_point_to_count_diff(roc[1][i],
@@ -44,17 +44,17 @@ def get_cutpoint(targets,
     p = np.sum(targets) / len(targets)
     if not p_adj:
         p_adj = np.sum(targets) / len(targets)
-    
+
     # Generating the roc curves and metrics
     roc = roc_curve(targets, guesses)
     js = roc[1] + (1 - roc[0]) - 1
     j_cut = roc[2][np.argmax(js)]
     count_cut = count_cutpoint_from_roc_curve(roc, p)
     count_adj_cut = count_cutpoint_from_roc_curve(roc, p_adj)
-    
+
     if out_type == 'dict':
-        out = {'j': j_cut, 
-               'count': count_cut, 
+        out = {'j': j_cut,
+               'count': count_cut,
                'count_adj': count_adj_cut}
     if out_type == 'df':
         out = pd.DataFrame([j_cut, count_cut, count_estim_cut]).transpose()
@@ -71,16 +71,20 @@ def get_cutpoints(Y, Y_,
     if type(Y) != type(pd.DataFrame()):
         Y = pd.DataFrame(Y)
         Y_ = pd.DataFrame(Y_)
-    
+
     if column_names:
         Y.columns = column_names
         Y_.columns = column_names
     else:
         column_names = Y.columns.values
-    
-    cuts = [get_cutpoint(Y[c], Y_[c], 
-                         p_adj=p_adj[i], 
-                         out_type=out_type) 
+
+    if p_adj is None:
+        p_adj = np.sum(Y, axis=0) / Y.shape[0]
+        p_adj = p_adj.values
+
+    cuts = [get_cutpoint(Y[c], Y_[c],
+                         p_adj=p_adj[i],
+                         out_type=out_type)
             for i, c in enumerate(column_names)]
     if out_type == 'dict':
         out = dict(zip(column_names, cuts))
@@ -100,7 +104,7 @@ def resample_dataset(df, y, p_adj):
     return df.iloc[new_rows, :]
 
 
-def jackknife_metrics(targets, 
+def jackknife_metrics(targets,
                       guesses,
                       cutpoint=0.5,
                       average='weighted'):
@@ -116,7 +120,7 @@ def jackknife_metrics(targets,
                           average=average) for idx in j_rows]
     scores = pd.concat(scores, axis=0)
     means = scores.mean()
-    
+
     return scores, means
 
 
@@ -135,7 +139,7 @@ class boot_cis:
         seed=10221983,
         p_adj=None,
         boot_mean=False):
-        """Calculates bootstrap confidence intervals for the full panel of 
+        """Calculates bootstrap confidence intervals for the full panel of
         classification metrics.
         """
         # Converting everything to NumPy arrays, just in case
@@ -166,17 +170,17 @@ class boot_cis:
         seeds = np.random.randint(0, 1e6, n)
 
         # Generating the bootstrap samples and metrics
-        boots = [boot_sample(df=targets, 
-                             by=targets, 
+        boots = [boot_sample(df=targets,
+                             by=targets,
                              p_adj=p_adj,
                              seed=seed) for seed in seeds]
-        scores = [clf_metrics(targets[b], 
+        scores = [clf_metrics(targets[b],
                               guesses[b],
                               cutpoint=cutpoint,
                               p_adj=p_adj,
                               average=average) for b in boots]
         scores = pd.concat(scores, axis=0)
-        
+
         # Optionally using the bootstarp means as the estimates
         if boot_mean:
             stat = scores.mean().to_frame()
@@ -199,7 +203,7 @@ class boot_cis:
             cis = pd.DataFrame(cis.transpose(),
                                columns=["lower", "upper"],
                                index=colnames)
-        
+
         # Or with the standard "empirical" approach, using bootstrap variances
         # and z-scores.
         elif method == 'emp':
@@ -208,7 +212,7 @@ class boot_cis:
             vars = np.sum(diffs**2, axis=0) / (n - 1)
             zl = norm.ppf(a / 2)
             zu = norm.ppf(1 - (a / 2))
-            cis = pd.DataFrame([stat_vals + (zl * np.sqrt(vars)), 
+            cis = pd.DataFrame([stat_vals + (zl * np.sqrt(vars)),
                                 stat_vals + (zu * np.sqrt(vars))]).transpose()
             cis.columns = ['lower', 'upper']
             cis.set_index(stat.index, inplace=True)
@@ -239,7 +243,7 @@ class boot_cis:
             z0[np.where(np.isinf(z0))[0]] = 0.0
 
             # Estiamating the acceleration factor
-            j = jackknife_metrics(targets=targets, 
+            j = jackknife_metrics(targets=targets,
                                   guesses=guesses,
                                   cutpoint=cutpoint,
                                   average=average)
@@ -288,8 +292,8 @@ class boot_cis:
         return
 
 
-def average_pvals(p_vals, 
-                  w=None, 
+def average_pvals(p_vals,
+                  w=None,
                   method='harmonic',
                   smooth=True,
                   smooth_val=1e-7):
@@ -322,10 +326,10 @@ def onehot_matrix(y, sparse=False):
 def boot_sample(df,
                 by=None,
                 p_adj=None,
-                seed=None, 
-                size=None, 
+                seed=None,
+                size=None,
                 return_df=False):
-    """Generates bootstrap samples of the indices of a dataset, with the 
+    """Generates bootstrap samples of the indices of a dataset, with the
     option to stratify by one of the binary variables in the dataset.
     """
     # Setting the random states for the samples
@@ -347,14 +351,14 @@ def boot_sample(df,
     else:
         if not p_adj:
             p_adj = np.sum(by == 1) / len(by)
-        
+
         class_weights = [1 - p_adj, p_adj]
         level_idx = [np.where(by == level)[0] for level in [0, 1]]
-        boot = [np.random.choice(level_idx[i], 
-                                 size=int(class_weights[i] * size), 
+        boot = [np.random.choice(level_idx[i],
+                                 size=int(class_weights[i] * size),
                                  replace=True) for i in range(2)]
         boot = np.concatenate(boot).ravel()
-    
+
     if not return_df:
         return boot
     else:
@@ -522,5 +526,3 @@ def max_probs(arr, maxes=None, axis=1):
         maxes = np.argmax(arr, axis=axis)
     out = [arr[i, maxes[i]] for i in range(arr.shape[0])]
     return np.array(out)
-
-

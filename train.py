@@ -27,7 +27,7 @@ if __name__ == '__main__':
                         both. Only applies if --mode is either train or both')
     parser.add_argument('--data_dir',
                         type=str,
-                        default='D:/data/hamlet/',
+                        default='C:/Users/yle4/data/',
                         help='Path to the directory holding the three image \
                         dataset folders (train, val, and test) and the \
                         CSV file with the image-level labels and metadata.')
@@ -44,14 +44,14 @@ if __name__ == '__main__':
                         training. Ignored if --mode is "test".')
     parser.add_argument('--model_flavor',
                         type=str,
-                        default='EfficientNetV2S',
+                        default='EfficientNetV2M',
                         help='What pretrained model to use as the feature \
                         extractor.')
     parser.add_argument('--no_augmentation',
                         action='store_true')
     parser.add_argument('--batch_size',
                         type=int,
-                        default=4,
+                        default=12,
                         help='Minibatch size for model training and inference.')
     parser.add_argument('--progressive',
                         action='store_true',
@@ -70,18 +70,19 @@ if __name__ == '__main__':
                         blocks to unfreeze at the start of fine-tuning.')
     parser.add_argument('--metric',
                         type=str,
-                        default='val_loss',
+                        default='val_ROC_AUC',
                         help='Which metric to use for early stopping.')
     parser.add_argument('--metric_mode',
                         type=str,
-                        default='min',
+                        default='max',
                         help='Whether to min or max the metric',
                         choices=['min', 'max'])
     parser.add_argument('--distributed',
                         action='store_true',
                         help='Turns on distributed (multi-GPU) training')
     parser.set_defaults(no_augmentation=False,
-                        progressive=False)
+                        progressive=False,
+                        distributed=False)
     args = parser.parse_args()
 
     # Parameters
@@ -99,7 +100,8 @@ if __name__ == '__main__':
     DISTRIBUTED = args.distributed
 
     # Directories
-    BASE_DIR = args.data_dir
+    DATA_DIR = args.data_dir
+    HAM_DIR = DATA_DIR + 'hamlet/'
     OUT_DIR = 'output/' + args.task + '/'
     CHECK_DIR = OUT_DIR + 'checkpoints/'
     LOG_DIR = OUT_DIR + 'logs/'
@@ -120,7 +122,7 @@ if __name__ == '__main__':
         strategy = tf.distribute.get_strategy()
 
     # Reading the labels
-    records = pd.read_csv(BASE_DIR + args.csv_name, encoding='latin')
+    records = pd.read_csv(HAM_DIR + args.csv_name, encoding='latin')
     if TASK == 'findings':
         LABEL_COL = [
             'infiltrate', 'reticular', 'cavity',
@@ -145,7 +147,7 @@ if __name__ == '__main__':
 
     # Validation data loader--used for both training and testing
     val_dg = ImageDataGenerator()
-    val_dir = BASE_DIR + 'val/img/'
+    val_dir = HAM_DIR + 'val/img/'
     val_gen = val_dg.flow_from_dataframe(dataframe=val,
                                          directory=val_dir,
                                          x_col='file',
@@ -157,7 +159,7 @@ if __name__ == '__main__':
                                          batch_size=BATCH_SIZE)
 
     train_dg = ImageDataGenerator()
-    train_dir = BASE_DIR + 'train/img/'
+    train_dir = HAM_DIR + 'train/img/'
     train_gen = train_dg.flow_from_dataframe(dataframe=train,
                                              directory=train_dir,
                                              x_col='file',
@@ -191,7 +193,7 @@ if __name__ == '__main__':
                                   learning_rate=1e-4,
                                   model_flavor=MODEL_FLAVOR,
                                   effnet_trainable=ALL_BLOCKS)
-    
+
     if TRAIN_MOD_FOLDER:
         mod.load_weights(CHECK_DIR + TRAIN_MOD_FOLDER)
 
