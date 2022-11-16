@@ -1,43 +1,19 @@
 import pandas as pd
 import numpy as np
 
-def crosstab(df, var, levels=None, col='N'):
-    if levels is None:
-        levels = np.unique(df[var])
-    counts = [np.sum([x == l for x in df[var]]) for l in levels]
-    out = pd.DataFrame(counts, columns=[col], index=levels)
-    return out
-
-
-def vartab(df, var, 
-           varname=None,
-           levels=None, 
-           col='N', 
-           percent=True, 
-           round=0, 
-           use_empty=False):
-    if varname is None:
-        varname = var
-    out = crosstab(df, var, col=col, levels=levels)
-    if percent:
-        percents = (out.N / out.N.sum()) * 100
-        out['%'] = np.round(percents, round)
-        if round == 0:
-            out['%'] = out['%'].astype(int)
-    if use_empty:
-        empty = pd.DataFrame([''], columns=[col], index=[''])
-        out = pd.concat([out, empty], axis=0)
-    var_index = [varname] + [''] * (out.shape[0] - 1)
-    out = out.set_index([var_index, out.index.values.astype(str)])
-    return out
+from hamlet.tools.generic import crosstab, vartab
     
 
+# Read in the full dataset
 data_dir = '~/OneDrive - CDC/Documents/projects/hamlet/'
 df = pd.read_csv(data_dir + 'samp.csv')
 
 # Making age group variables
 df['age_years'] = (df.age_days / 365).round().astype(int)
-df['age_group'] = pd.cut(df.age_years, bins=[15, 25, 45, 65, 85, 99])
+df['age_group'] = pd.cut(df.age_years, 
+                         bins=[15, 25, 35, 45, 55, 65, 99],
+                         labels=['15-24', '25-34', '35-44', 
+                                 '45-54', '55-64', '>=65'])
 df['age_group'] = df.age_group.astype(str)
 
 # Making geographic region and subregion variables
@@ -111,7 +87,8 @@ for j, s in enumerate(splits):
     tabs = [vartab(df=s, 
                    var=tab_cols[i], 
                    varname=tab_names[i],
-                   levels=var_levels[i])
+                   levels=var_levels[i],
+                   use_empty=True)
             for i, c in enumerate(tab_cols)]
     tabs = pd.concat(tabs, axis=0)
     split_tabs.append(tabs)
