@@ -82,7 +82,7 @@ splits = [df, train, val, test]
 # Making the tables, starting with demographics first
 dem_tabs = []
 tab_cols = [
-    'age_group', 'sex', 'source', 
+    'age_group', 'sex', 'source',
     'exam_region', 'exam_subregion'
 ]
 tab_names = [
