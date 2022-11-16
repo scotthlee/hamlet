@@ -90,7 +90,7 @@ for df in non_iom:
 # Pulling out columns to make a combined dataset
 abn_col = ['abnormal']
 demo_cols = [
-    'id', 'exam_country', 'exam_date',
+    'id', 'exam_country', 'exam_date', 'birth_country',
     'date_of_birth', 'panel_site', 'sex'
 ]
 find_cols = [
