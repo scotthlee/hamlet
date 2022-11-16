@@ -64,35 +64,82 @@ cultures = df[['culture_1', 'culture_2', 'culture_3']].sum(1) > 0
 df['culture'] = cultures.astype(np.uint8)
 df['tb_disease'] = np.array(smears + cultures > 0, dtype=np.uint8)
 
+# Adding a variable for the data source
+source = np.array([''] * df.shape[0], dtype='U16')
+ids = df.id.values.astype(str)
+source[np.where(['iom_' in s for s in ids])[0]] = 'IOM Telerad QC'
+source[np.where(['ref_' in s for s in ids])[0]] = 'MiMOSA'
+source[np.where(['pan_' in s for s in ids])[0]] = 'Panels'
+source[np.where(['im_' in s for s in ids])[0]] = 'eMedical'
+df['source'] = source
+
 # Dividing the data into splits for making separate tables
 train = df[df.split == 'train']
 val = df[df.split == 'val']
 test = df[df.split == 'test']
 splits = [df, train, val, test]
 
-split_tabs = []
+# Making the tables, starting with demographics first
+dem_tabs = []
 tab_cols = [
-    'abnormal', 'abnormal_tb', 'tb_disease',
-    'age_group', 'sex', 'exam_region', 
-    'exam_subregion'
+    'age_group', 'sex', 'source', 
+    'exam_region', 'exam_subregion'
 ]
 tab_names = [
-    'Abnormal', 'Abnormal TB', 'TB Disease', 
-    'Age Group', 'Sex', 'Exam Region', 
-    'Exam Sub-Region'
+    'Age Group', 'Sex', 'Data Source',
+    'Exam Region', 'Exam Sub-Region'
 ]
 split_names = ['All', 'Train', 'Validate', 'Test']
 var_levels = [np.unique(df[v]) for v in tab_cols]
 for j, s in enumerate(splits):
-    tabs = [vartab(df=s, 
+    tabs = []
+    for i, c in enumerate(tab_cols):
+        tab = vartab(df=s,
+                      var=tab_cols[i],
+                      varname=tab_names[i],
+                      levels=var_levels[i],
+                      use_empty=True)
+        tabs.append(tab)
+    tabs = pd.concat(tabs, axis=0)
+    dem_tabs.append(tabs)
+
+dem_tabs = pd.concat(dem_tabs, axis=1)
+dem_tabs.to_csv(data_dir + 'analysis/dem_tabs.csv')
+
+# And now the TB-related table
+tb_tabs = []
+tab_cols = [
+    'abnormal', 'abnormal_tb', 'tb_disease',
+    'infiltrate', 'reticular', 'cavity',
+    'nodule', 'pleural_effusion', 'hilar_adenopathy',
+    'miliary', 'linear_opacity', 'discrete_nodule',
+    'volume_loss', 'pleural_reaction', 'other'
+]
+tab_names = [
+    'Abnormal', 
+    'Abnormal (Suggestive of TB)', 
+    'TB Disease',
+    'Infiltrate or Consolidation', 
+    'Reticular Findings',
+    'Cavitary Lesion',
+    'Nodule or Mass with Poorly Defined Margins',
+    'Pleural Effusion', 'Hilar/mediastinal Adenopathy',
+    'Miliary Findings', 'Discrete Linear Opacity',
+    'Discerete Nodule(s) Without Calcification',
+    'Volume Loss or Retraction', 'Irregular Thick Pleural Reaction',
+    'Other'
+]
+var_levels = [np.unique(df[v]) for v in tab_cols]
+for j, s in enumerate(splits):
+    tabs = [tg.vartab(df=s, 
                    var=tab_cols[i], 
                    varname=tab_names[i],
-                   levels=var_levels[i],
-                   use_empty=True)
+                   levels=[1],
+                   round=1)
             for i, c in enumerate(tab_cols)]
     tabs = pd.concat(tabs, axis=0)
-    split_tabs.append(tabs)
+    tb_tabs.append(tabs)
 
-split_tabs = pd.concat(split_tabs, axis=1)
-split_tabs.to_csv(data_dir + 'analysis/table1.csv')
+tb_tabs = pd.concat(tb_tabs, axis=1)
+tb_tabs.to_csv(data_dir + 'analysis/tb_tabs.csv')
     
