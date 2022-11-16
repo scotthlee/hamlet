@@ -126,3 +126,35 @@ def merge_ci_list(l, mod_names=None, round=4):
     return pd.concat(merged_cis, axis=0)
 
 
+def crosstab(df, var, levels=None, col='N'):
+    if levels is None:
+        levels = np.unique(df[var])
+    counts = [np.sum([x == l for x in df[var]]) for l in levels]
+    out = pd.DataFrame(counts, columns=[col], index=levels)
+    return out
+
+
+def vartab(df, var, 
+           varname=None,
+           levels=None, 
+           col='N', 
+           percent=True, 
+           round=0, 
+           use_empty=False):
+    if varname is None:
+        varname = var
+    out = crosstab(df, var, col=col, levels=levels)
+    if percent:
+        if (levels is not None) and (len(levels) == 1):
+            percents = (out.N / df[var].shape[0]) * 100
+        else:
+            percents = (out.N / out.N.sum()) * 100
+        out['%'] = np.round(percents, round)
+        if round == 0:
+            out['%'] = out['%'].astype(int)
+    if use_empty:
+        empty = pd.DataFrame([''], columns=[col], index=[''])
+        out = pd.concat([out, empty], axis=0)
+    var_index = [varname] + [''] * (out.shape[0] - 1)
+    out = out.set_index([var_index, out.index.values.astype(str)])
+    return out
