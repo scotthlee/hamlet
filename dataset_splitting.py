@@ -8,7 +8,7 @@ from hamlet.tools.generic import check_fnames, trim_zeroes
 
 
 SEED = 2022
-TEST_N = 8000
+MIN_N = 1000
 ADD_NEW_ONLY = False
 
 # Setting the directorires
@@ -117,6 +117,28 @@ all_df = pd.concat([iom[all_cols], non_iom], axis=0)
 all_df['abnormal_tb'] = np.array(all_df[find_cols].sum(axis=1) > 0,
                                  dtype=np.uint8)
 
+# Dropping rows without CXR readings
+all_df = all_df.dropna(axis=0, subset=['abnormal'])
+all_df = all_df.drop_duplicates(subset='id', keep='first')
+
+# Making a data source variable
+all_df['source'] = ''
+all_df.source[['im_' in str(id) for id in all_df.id.values]] = 'immigrant'
+all_df.source[['ref_' in str(id) for id in all_df.id.values]] = 'refugee'
+all_df.source[['iom_' in str(id) for id in all_df.id.values]] = 'iom'
+all_df.source[['pan_' in str(id) for id in all_df.id.values]] = 'panel'
+
+# Making the first data flow table
+n_tabs = pd.crosstab(all_df.source, 'n')
+ab_tabs = pd.crosstab(all_df.source, all_df.abnormal)
+ab_tabs['pct_ab'] = ab_tabs[1] / n_tabs.n
+abtb_tabs = pd.crosstab(all_df.source, all_df.abnormal_tb)
+abtb_tabs['pct_abtb'] = abtb_tabs[1] / n_tabs.n
+tabs = pd.concat([n_tabs, ab_tabs, abtb_tabs], axis=1)
+tabs.drop([0.0], axis=1, inplace=True)
+tabs.columns = ['n', 'ab', 'pct_ab', 'abtb', 'pct_abtb']
+tabs.to_csv(base_dir + 'all_ages_tab.csv')
+
 # Dropping data from entrants under 15 years old
 all_df['exam_date'] = pd.to_datetime(all_df.exam_date, errors='coerce')
 all_df['date_of_birth'] = pd.to_datetime(all_df.date_of_birth, errors='coerce')
@@ -128,6 +150,17 @@ adults = np.where(days >= 15*365)[0]
 kids = np.where(days < 15*365)[0]
 all_df.iloc[kids, :].to_csv(base_dir + 'kids.csv', index=False)
 all_df = all_df.iloc[adults, :].reset_index(drop=True)
+
+# Making the source tables for adults
+n_tabs = pd.crosstab(all_df.source, 'n')
+ab_tabs = pd.crosstab(all_df.source, all_df.abnormal)
+ab_tabs['pct_ab'] = ab_tabs[1] / n_tabs.n
+abtb_tabs = pd.crosstab(all_df.source, all_df.abnormal_tb)
+abtb_tabs['pct_abtb'] = abtb_tabs[1] / n_tabs.n
+tabs = pd.concat([n_tabs, ab_tabs, abtb_tabs], axis=1)
+tabs.drop([0.0], axis=1, inplace=True)
+tabs.columns = ['n', 'ab', 'pct_ab', 'abtb', 'pct_abtb']
+tabs.to_csv(base_dir + 'adults_tab.csv')
 
 # Saving the dataset to file
 all_df.to_csv(base_dir + 'all.csv', index=False)
@@ -145,17 +178,28 @@ no_record = np.where(has_record == False)[0]
 
 fnames = os.listdir(presplit_dir)
 short_fnames = [s[:-4] for s in fnames]
-fname_dict = dict(zip(fnames, short_fnames))
 
 # Building the splits
 has_img = check_fnames(all_df.id.values.astype('str'),
                        short_fnames)
-fnames = [fnames[i] for i in np.where(has_image == 1)[0]]
+fnames = [fnames[i] for i in np.where(has_img == 1)[0]]
 fname_dict = dict(zip([f[:-4] for f in fnames], fnames))
 samp_df = all_df.iloc[has_img, :].drop_duplicates(subset='id')
 ids = samp_df.id.values.astype('str')
 samp_df['file'] = [fname_dict[id] for id in ids]
 
+# Making the flow table for adults with valid images
+n_tabs = pd.crosstab(samp_df.source, 'n')
+ab_tabs = pd.crosstab(samp_df.source, samp_df.abnormal)
+ab_tabs['pct_ab'] = ab_tabs[1] / n_tabs.n
+abtb_tabs = pd.crosstab(samp_df.source, samp_df.abnormal_tb)
+abtb_tabs['pct_abtb'] = abtb_tabs[1] / n_tabs.n
+tabs = pd.concat([n_tabs, ab_tabs, abtb_tabs], axis=1)
+tabs.drop([0.0], axis=1, inplace=True)
+tabs.columns = ['n', 'ab', 'pct_ab', 'abtb', 'pct_abtb']
+tabs.to_csv(base_dir + 'valid_tab.csv')
+
+# Specifying the panel sites to use for reference reads
 sites = samp_df.panel_site.values.astype('str')
 good_sites = [
               'Cho Ray', 'ASVIET1', 'Luke',
@@ -168,36 +212,95 @@ good_sites = [
 good_any = np.array([s in good_sites for s in sites], dtype=np.uint8)
 panel_pos = np.array(['pan_' in s for s in ids], dtype=np.uint8)
 iom_read = np.array(['iom_' in s for s in ids], dtype=np.uint8)
+pref_reads = np.array(good_any + panel_pos + iom_read > 0, dtype=np.uint8)
 
-abn = samp_df.abnormal.values
-ref_mtb = np.array(samp_df.class_a == 1, dtype=np.uint8)
-ref_abn = np.array(((panel_pos == 1) | (iom_read == 1)) & (abn == 1),
-                    dtype=np.uint8)
-ref_nrm = np.array((good_any == 1) & (abn == 0),
-                   dtype=np.uint8)
+# Setting up the reference reads for validation and testing
+abtb = samp_df.abnormal_tb.values
+ab = samp_df.abnormal.values
+abnotb = np.array(abtb != ab, dtype=np.uint8)
+samp_df['ab_kind'] = 'normal'
+samp_df.ab_kind[abnotb == 1] = 'no TB'
+samp_df.ab_kind[abtb == 1] = 'TB'
 
+# Setting up the sampling ratios for two settings: high TB and low TB;
+# probabilities are for TB, no TB, and normal; these probabilities are about
+# the same as they are in all_df
+source = samp_df.source.values.astype(str)
+high_tb_cond = (good_any == 1) & ([s in ['immigrant', 'refugee']
+                                   for s in source])
+high_tb = pd.crosstab(samp_df.ab_kind[high_tb_cond], 'n')
+high_tb_p = (high_tb / high_tb.sum()).values.flatten()
+
+low_tb_cond = (good_any == 0) & ([s in ['immigrant', 'refugee']
+                                  for s in source])
+low_tb = pd.crosstab(samp_df.ab_kind[low_tb_cond], 'n')
+low_tb_p = (low_tb / low_tb.sum()).values.flatten()
+
+mean_p = np.mean([high_tb_p, low_tb_p], axis=0)
+
+# Calculating how many images (in total) to use for validation and testing
+# for each of the two scenarios
+scenarios = [low_tb_p, high_tb_p]
+prob_names = ['TB', 'no TB', 'normal']
+scen_counts = []
+for i, s in enumerate(scenarios):
+    p_sort = np.argsort(s[0:2])
+    ratio = s[p_sort[1]] / s[p_sort[0]]
+    other_n = int(ratio * MIN_N)
+    p_names = [prob_names[j] for j in p_sort]
+    scen_counts.append(dict(zip(p_names, [MIN_N * 2, other_n * 2])))
+
+# Building the samples
 np.random.seed(SEED)
-ref_abn_samp = np.random.choice(np.where(ref_abn == 1)[0],
-                                 size=TEST_N,
-                                 replace=False)
-ref_nrm_samp = np.random.choice(np.where(ref_nrm == 1)[0],
-                                 size=TEST_N,
-                                 replace=False)
-val_samp = np.random.choice(range(TEST_N),
-                            size=int(TEST_N / 2),
-                            replace=False)
-test_samp = np.setdiff1d(range(TEST_N), val_samp)
+scen_samps = []
+ref_abtb = np.array((pref_reads == 1) & (abtb == 1))
+ref_notb = np.array(abnotb == 1)
+ref_norm = np.array((pref_reads == 1) & (ab == 0))
 
-val_ids = np.concatenate([ref_abn_samp[val_samp],
-                          ref_nrm_samp[val_samp]])
-test_ids = np.concatenate([ref_abn_samp[test_samp],
-                           ref_nrm_samp[test_samp]])
-abn_split = np.array(['train'] * samp_df.shape[0])
-abn_split[val_ids] = 'val'
-abn_split[test_ids] = 'test'
+total_tb = np.sum([s['TB'] for s in scen_counts])
+total_notb = np.sum([s['no TB'] for s in scen_counts])
+total_norm = MIN_N * 4
+
+tb_ids = np.random.choice(ids[ref_abtb], size=total_tb, replace=False)
+notb_ids = np.random.choice(ids[ref_notb], size=total_notb, replace=False)
+norm_ids = np.random.choice(ids[ref_norm], size=total_norm, replace=False)
+
+high_tb_ids = [
+    np.random.choice(tb_ids, size=scen_counts[1]['TB'], replace=False),
+    np.random.choice(notb_ids, size=scen_counts[1]['no TB'], replace=False),
+    np.random.choice(norm_ids, size=MIN_N * 2, replace=False)
+]
+low_tb_ids = [
+    np.setdiff1d(tb_ids, high_tb_ids[0]),
+    np.setdiff1d(notb_ids, high_tb_ids[1]),
+    np.setdiff1d(norm_ids, high_tb_ids[2])
+]
+high_tb_ids = np.concatenate(high_tb_ids)
+low_tb_ids = np.concatenate(low_tb_ids)
+
+val_high = np.random.choice(high_tb_ids,
+                            size=int(.5 * len(high_tb_ids)),
+                            replace=False)
+val_low = np.random.choice(low_tb_ids,
+                           size=int(.5 * len(low_tb_ids)),
+                           replace=False)
+test_high = np.setdiff1d(high_tb_ids, val_high)
+test_low = np.setdiff1d(low_tb_ids, val_low)
+
+# Assigning everythign else to training data and then smushing together the
+# validation IDs (keeping them separate is only optional)
+train_ids = np.setdiff1d(ids, np.concatenate([high_tb_ids,
+                                              low_tb_ids]).flatten())
+val_ids = np.concatenate([val_high, val_low]).flatten()
+
+# Making a lookup dictionary that specifies the split
+id_dict = dict(zip(val_ids, ['val'] * len(val_ids)))
+id_dict.update(dict(zip(train_ids, ['train'] * len(train_ids))))
+id_dict.update(dict(zip(test_high, ['test_high'] * len(test_high))))
+id_dict.update(dict(zip(test_low, ['test_low'] * len(test_low))))
 
 # Writing the CSV back to disk with the split info
-samp_df['split'] = abn_split
+samp_df['split'] = [id_dict[id] for id in samp_df.id]
 samp_df.to_csv(base_dir + 'samp.csv', index=False)
 
 # And now moving the validation and test images
