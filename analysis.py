@@ -24,18 +24,18 @@ abtb_p = np.round(samp.abnormal_tb.sum() / N, 2)
 find_p  = np.round(samp[find_cols].sum() / N, 4)
 
 # Getting the cutpoints
-ab_cuts = ti.get_cutpoint(val.abnormal, 
-                          val.abnormal_prob, 
+ab_cuts = ti.get_cutpoint(val.abnormal,
+                          val.abnormal_prob,
                           p_adj=ab_p)
-abtb_cuts = ti.get_cutpoint(val.abnormal,
-                            val.abnormal_prob,
+abtb_cuts = ti.get_cutpoint(val.abnormal_tb,
+                            val.abnormal_tb_prob,
                             p_adj=abtb_p)
 find_cuts = ti.get_cutpoints(val[find_cols].values,
                              val[[s + '_prob' for s in find_cols]].values,
                              column_names=find_cols,
                              p_adj=find_p)
-all_cuts = {'abnormal': ab_cuts, 
-            'abnormal_tb': abtb_cuts, 
+all_cuts = {'abnormal': ab_cuts,
+            'abnormal_tb': abtb_cuts,
             'findings': find_cuts}
 
 # Getting the confidence intervals
@@ -47,12 +47,12 @@ ab_ct_cis = tm.boot_cis(test.abnormal,
                         test.abnormal_prob,
                         cutpoint=ab_cuts['count_adj'],
                         p_adj=ab_p)
-abtb_j_cis = tm.boot_cis(test.abnormal,
-                         test.abnormal_prob,
+abtb_j_cis = tm.boot_cis(test.abnormal_tb,
+                         test.abnormal_tb_prob,
                          cutpoint=abtb_cuts['j'],
                          p_adj=abtb_p)
-abtb_ct_cis = tm.boot_cis(test.abnormal,
-                          test.abnormal_prob,
+abtb_ct_cis = tm.boot_cis(test.abnormal_tb,
+                          test.abnormal_tb_prob,
                           cutpoint=abtb_cuts['count_adj'],
                           p_adj=abtb_p)
 find_j_cis = [tm.boot_cis(test[c],

@@ -59,6 +59,11 @@ if __name__ == '__main__':
     parser.add_argument('--distributed',
                         action='store_true',
                         help='Turns on distributed (multi-GPU) training')
+    parser.add_argument('--validate_on',
+                        type=str,
+                        default='hamlet',
+                        choices=['hamlet', 'nih'],
+                        help='Which dataset to use for validation.')
     parser.set_defaults(no_augmentation=False,
                         progressive=False,
                         distributed=False)
@@ -72,6 +77,7 @@ if __name__ == '__main__':
     METRIC = args.metric
     METRIC_MODE = args.metric_mode
     DISTRIBUTED = args.distributed
+    VALIDATE_ON = args.validate_on
 
     # Directories
     DATA_DIR = args.data_dir
@@ -109,27 +115,12 @@ if __name__ == '__main__':
 
     records[LABEL_COL] = records[LABEL_COL].fillna(0).astype(np.uint8)
     train = records[records.split == 'train'].reset_index(drop=True)
-    val = records[records.split == 'val'].reset_index(drop=True)
-    test = records[records.split == 'test'].reset_index(drop=True)
-    dfs = [train, val, test]
 
     # Parameters for the data loader
     img_height = 600
     img_width = 600
 
-    # Validation data loader--used for both training and testing
-    val_dg = ImageDataGenerator()
-    val_dir = HAM_DIR + 'val/img/'
-    val_gen = val_dg.flow_from_dataframe(dataframe=val,
-                                         directory=val_dir,
-                                         x_col='file',
-                                         y_col=LABEL_COL,
-                                         class_mode='raw',
-                                         shuffle=False,
-                                         target_size=(img_height,
-                                                      img_width),
-                                         batch_size=BATCH_SIZE)
-
+    # Loading the training data
     train_dg = ImageDataGenerator()
     train_dir = HAM_DIR + 'train/img/'
     train_gen = train_dg.flow_from_dataframe(dataframe=train,
@@ -140,6 +131,26 @@ if __name__ == '__main__':
                                              target_size=(img_height,
                                                           img_width),
                                              batch_size=BATCH_SIZE)
+
+    # Loading the validation data
+    val_dg = ImageDataGenerator()
+    if VALIDATE_ON == 'hamlet':
+        val = records[records.split == 'val'].reset_index(drop=True)
+        val_dir = HAM_DIR + 'val/img/'
+    elif VALIDATE_ON == 'nih':
+        nih_labels = pd.read_csv(DATA_DIR + 'nih/labels.csv')
+        val = nih_labels[nih_labels.split == 'val']
+        val_dir = DATA_DIR + 'nih/val/img/'
+
+    val_gen = val_dg.flow_from_dataframe(dataframe=val,
+                                         directory=val_dir,
+                                         x_col='file',
+                                         y_col=LABEL_COL,
+                                         class_mode='raw',
+                                         shuffle=False,
+                                         target_size=(img_height,
+                                                      img_width),
+                                         batch_size=BATCH_SIZE)
 
     # Setting up callbacks and metrics
     tr_callbacks = [
@@ -164,7 +175,7 @@ if __name__ == '__main__':
                                   augmentation=AUGMENT,
                                   learning_rate=1e-4,
                                   model_flavor=MODEL_FLAVOR,
-                                  effnet_trainable=ALL_BLOCKS)
+                                  effnet_trainable=True)
 
     if TRAIN_MOD_FOLDER:
         mod.load_weights(CHECK_DIR + TRAIN_MOD_FOLDER)

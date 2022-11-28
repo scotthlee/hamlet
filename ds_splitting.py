@@ -8,7 +8,7 @@ from hamlet.tools.generic import check_fnames, trim_zeroes
 
 
 SEED = 2022
-MIN_N = 1000
+TEST_N = 8000
 ADD_NEW_ONLY = False
 
 # Setting the directorires
@@ -167,24 +167,25 @@ all_df.to_csv(base_dir + 'all.csv', index=False)
 presplit_dir = base_dir + 'presplit/'
 fnames = os.listdir(presplit_dir)
 short_fnames = [s[:-4] for s in fnames]
+fname_dict = dict(zip(short_fnames, fnames))
 
 # Quick check for images with no record
 ids = all_df.id.values.astype('str')
-has_record = check_fnames(short_fnames, ids)
-no_record = np.where(has_record == False)[0]
-[os.rename(presplit_dir + fnames[i],
-           base_dir + 'source/bad/no_record/' + fnames[i])
- for i in no_record]
+no_record = np.setdiff1d(short_fnames, ids)
+[os.rename(presplit_dir + fname_dict[f],
+           base_dir + 'source/bad/no_record/' + f[i])
+ for f in no_record]
 
 fnames = os.listdir(presplit_dir)
 short_fnames = [s[:-4] for s in fnames]
 
 # Building the splits
-has_img = check_fnames(all_df.id.values.astype('str'),
-                       short_fnames)
-fnames = [fnames[i] for i in np.where(has_img == 1)[0]]
-fname_dict = dict(zip([f[:-4] for f in fnames], fnames))
-samp_df = all_df.iloc[has_img, :].drop_duplicates(subset='id')
+has_img = np.intersect1d(ar1=all_df.id.values,
+                         ar2=short_fnames,
+                         return_indices=True)
+fnames = [fname_dict[f] for f in has_img[0]]
+short_fnames = [f[:-4] for f in fnames]
+samp_df = all_df.iloc[has_img[1], :].drop_duplicates(subset='id').reset_index()
 ids = samp_df.id.values.astype('str')
 samp_df['file'] = [fname_dict[id] for id in ids]
 
@@ -217,90 +218,41 @@ pref_reads = np.array(good_any + panel_pos + iom_read > 0, dtype=np.uint8)
 # Setting up the reference reads for validation and testing
 abtb = samp_df.abnormal_tb.values
 ab = samp_df.abnormal.values
-abnotb = np.array(abtb != ab, dtype=np.uint8)
+abnotb = np.array((ab == 1) & (abtb == 0), dtype=np.uint8)
 samp_df['ab_kind'] = 'normal'
 samp_df.ab_kind[abnotb == 1] = 'no TB'
 samp_df.ab_kind[abtb == 1] = 'TB'
 
-# Setting up the sampling ratios for two settings: high TB and low TB;
-# probabilities are for TB, no TB, and normal; these probabilities are about
-# the same as they are in all_df
-source = samp_df.source.values.astype(str)
-high_tb_cond = (good_any == 1) & ([s in ['immigrant', 'refugee']
-                                   for s in source])
-high_tb = pd.crosstab(samp_df.ab_kind[high_tb_cond], 'n')
-high_tb_p = (high_tb / high_tb.sum()).values.flatten()
+abn = samp_df.abnormal.values
+ref_mtb = np.array(samp_df.class_a == 1, dtype=np.uint8)
+ref_abn = np.array(((panel_pos == 1) | (iom_read == 1)) & (abn == 1),
+                    dtype=np.uint8)
+ref_nrm = np.array((good_any == 1) & (abn == 0),
+                   dtype=np.uint8)
 
-low_tb_cond = (good_any == 0) & ([s in ['immigrant', 'refugee']
-                                  for s in source])
-low_tb = pd.crosstab(samp_df.ab_kind[low_tb_cond], 'n')
-low_tb_p = (low_tb / low_tb.sum()).values.flatten()
-
-mean_p = np.mean([high_tb_p, low_tb_p], axis=0)
-
-# Calculating how many images (in total) to use for validation and testing
-# for each of the two scenarios
-scenarios = [low_tb_p, high_tb_p]
-prob_names = ['TB', 'no TB', 'normal']
-scen_counts = []
-for i, s in enumerate(scenarios):
-    p_sort = np.argsort(s[0:2])
-    ratio = s[p_sort[1]] / s[p_sort[0]]
-    other_n = int(ratio * MIN_N)
-    p_names = [prob_names[j] for j in p_sort]
-    scen_counts.append(dict(zip(p_names, [MIN_N * 2, other_n * 2])))
-
-# Building the samples
 np.random.seed(SEED)
-scen_samps = []
-ref_abtb = np.array((pref_reads == 1) & (abtb == 1))
-ref_notb = np.array(abnotb == 1)
-ref_norm = np.array((pref_reads == 1) & (ab == 0))
+ref_abn_samp = np.random.choice(np.where(ref_abn == 1)[0],
+                                 size=TEST_N,
+                                 replace=False)
+ref_nrm_samp = np.random.choice(np.where(ref_nrm == 1)[0],
+                                 size=TEST_N,
+                                 replace=False)
 
-total_tb = np.sum([s['TB'] for s in scen_counts])
-total_notb = np.sum([s['no TB'] for s in scen_counts])
-total_norm = MIN_N * 4
-
-tb_ids = np.random.choice(ids[ref_abtb], size=total_tb, replace=False)
-notb_ids = np.random.choice(ids[ref_notb], size=total_notb, replace=False)
-norm_ids = np.random.choice(ids[ref_norm], size=total_norm, replace=False)
-
-high_tb_ids = [
-    np.random.choice(tb_ids, size=scen_counts[1]['TB'], replace=False),
-    np.random.choice(notb_ids, size=scen_counts[1]['no TB'], replace=False),
-    np.random.choice(norm_ids, size=MIN_N * 2, replace=False)
-]
-low_tb_ids = [
-    np.setdiff1d(tb_ids, high_tb_ids[0]),
-    np.setdiff1d(notb_ids, high_tb_ids[1]),
-    np.setdiff1d(norm_ids, high_tb_ids[2])
-]
-high_tb_ids = np.concatenate(high_tb_ids)
-low_tb_ids = np.concatenate(low_tb_ids)
-
-val_high = np.random.choice(high_tb_ids,
-                            size=int(.5 * len(high_tb_ids)),
+val_samp = np.random.choice(range(TEST_N),
+                            size=int(TEST_N / 2),
                             replace=False)
-val_low = np.random.choice(low_tb_ids,
-                           size=int(.5 * len(low_tb_ids)),
-                           replace=False)
-test_high = np.setdiff1d(high_tb_ids, val_high)
-test_low = np.setdiff1d(low_tb_ids, val_low)
+test_samp = np.setdiff1d(range(TEST_N), val_samp)
 
-# Assigning everythign else to training data and then smushing together the
-# validation IDs (keeping them separate is only optional)
-train_ids = np.setdiff1d(ids, np.concatenate([high_tb_ids,
-                                              low_tb_ids]).flatten())
-val_ids = np.concatenate([val_high, val_low]).flatten()
-
-# Making a lookup dictionary that specifies the split
-id_dict = dict(zip(val_ids, ['val'] * len(val_ids)))
-id_dict.update(dict(zip(train_ids, ['train'] * len(train_ids))))
-id_dict.update(dict(zip(test_high, ['test_high'] * len(test_high))))
-id_dict.update(dict(zip(test_low, ['test_low'] * len(test_low))))
+val_ids = np.concatenate([ref_abn_samp[val_samp],
+                          ref_nrm_samp[val_samp]])
+test_ids = np.concatenate([ref_abn_samp[test_samp],
+                           ref_nrm_samp[test_samp]])
+abn_split = np.array(['train'] * samp_df.shape[0])
+abn_split[val_ids] = 'val'
+abn_split[test_ids] = 'test'
 
 # Writing the CSV back to disk with the split info
-samp_df['split'] = [id_dict[id] for id in samp_df.id]
+samp_df['split'] = abn_split
 samp_df.to_csv(base_dir + 'samp.csv', index=False)
 
 # And now moving the validation and test images
