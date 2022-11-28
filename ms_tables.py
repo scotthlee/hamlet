@@ -2,7 +2,7 @@ import pandas as pd
 import numpy as np
 
 from hamlet.tools.generic import crosstab, vartab
-    
+
 
 # Read in the full dataset
 data_dir = '~/OneDrive - CDC/Documents/projects/hamlet/'
@@ -10,9 +10,9 @@ df = pd.read_csv(data_dir + 'samp.csv')
 
 # Making age group variables
 df['age_years'] = (df.age_days / 365).round().astype(int)
-df['age_group'] = pd.cut(df.age_years, 
+df['age_group'] = pd.cut(df.age_years,
                          bins=[15, 25, 35, 45, 55, 65, 99],
-                         labels=['15-24', '25-34', '35-44', 
+                         labels=['15-24', '25-34', '35-44',
                                  '45-54', '55-64', '>=65'])
 df['age_group'] = df.age_group.astype(str)
 
@@ -29,9 +29,9 @@ exams = df.exam_country.str.upper().astype(str)
 exams.replace('VIETNAM', 'VIET NAM', inplace=True)
 exams.replace('RUSSIA', 'RUSSIAN FEDERATION', inplace=True)
 exams.replace('BOSNIA AND HERCEGOVINA',
-              'BOSNIA AND HERZEGOVINA', 
+              'BOSNIA AND HERZEGOVINA',
               inplace=True)
-exams.replace('UNITED KINGDOM', 
+exams.replace('UNITED KINGDOM',
               'UNITED KINGDOM OF GREAT BRITAIN AND NORTHERN IRELAND',
               inplace=True)
 exams.replace('MOLDOVA', 'MOLDOVA, REPUBLIC OF', inplace=True)
@@ -45,7 +45,7 @@ exams.replace('CAPE VERDE', 'CABO VERDE', inplace=True)
 exams.replace('SLOVAK REPUBLIC', 'SLOVAKIA', inplace=True)
 exams.replace('KOSOVO', 'SERBIA', inplace=True)
 exams.replace('TANZANIA, UNITED REP OF',
-              'TANZANIA, UNITED REPUBLIC OF', 
+              'TANZANIA, UNITED REPUBLIC OF',
               inplace=True)
 exams.replace('LAOS',
               "LAO PEOPLE'S DEMOCRATIC REPUBLIC",
@@ -116,10 +116,10 @@ tab_cols = [
     'volume_loss', 'pleural_reaction', 'other'
 ]
 tab_names = [
-    'Abnormal', 
-    'Abnormal (Suggestive of TB)', 
+    'Abnormal',
+    'Abnormal (Suggestive of TB)',
     'TB Disease',
-    'Infiltrate or Consolidation', 
+    'Infiltrate or Consolidation',
     'Reticular Findings',
     'Cavitary Lesion',
     'Nodule or Mass with Poorly Defined Margins',
@@ -131,8 +131,8 @@ tab_names = [
 ]
 var_levels = [np.unique(df[v]) for v in tab_cols]
 for j, s in enumerate(splits):
-    tabs = [tg.vartab(df=s, 
-                   var=tab_cols[i], 
+    tabs = [vartab(df=s,
+                   var=tab_cols[i],
                    varname=tab_names[i],
                    levels=[1],
                    round=1)
@@ -142,4 +142,3 @@ for j, s in enumerate(splits):
 
 tb_tabs = pd.concat(tb_tabs, axis=1)
 tb_tabs.to_csv(data_dir + 'analysis/tb_tabs.csv')
-    
