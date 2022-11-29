@@ -20,7 +20,7 @@ if __name__ == '__main__':
                         help='output directory for the image files')
     parser.add_argument('--prefix',
                         type=str,
-                        default='im_',
+                        default='',
                         help='prefix for the image file names to identify \
                         which dataset they came from')
     parser.add_argument('--num_files',
@@ -48,7 +48,8 @@ if __name__ == '__main__':
     OVERWRITE = args.overwrite
 
     # Making the list of files; default is to convert new ones only
-    to_convert = [f for f in os.listdir(DICOM_DIR) if 'dcm' in f]
+    to_convert = [f for f in os.listdir(DICOM_DIR) if ('dcm' in f)
+                  or ('dicom' in f)]
 
     if not CONVERT_PR:
         to_convert = [f for f in to_convert if '_PR' not in f]
@@ -66,7 +67,7 @@ if __name__ == '__main__':
 
     with Pool(PROCESSES) as p:
         input = [(f, DICOM_DIR, IMG_DIR,
-                  PREFIX, 1024, False, 'X:/DICOMM/bad_files.csv')
+                  PREFIX, 1024)
                  for f in files]
         output = p.starmap(convert_to_png, input)
         p.close()

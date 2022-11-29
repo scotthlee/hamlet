@@ -244,10 +244,31 @@ if __name__ == '__main__':
                                       mc_preds,
                                       cutpoint=cut)
 
-            other_stats = pd.concat([nih_stats, sh_stats, mc_stats],
+            # And finally on the Vietnam dataset
+            print('\nTesting on the Montgomery County data.')
+            vn_dg = ImageDataGenerator()
+            vn_dir = DATA_DIR + 'vietnam/'
+            vn_img_dir = vn_dir + 'test/img/'
+            vn_df = pd.read_csv(vn_dir + 'test_labels.csv')
+            vn_gen = vn_dg.flow_from_dataframe(dataframe=vn_df,
+                                               directory=vn_img_dir,
+                                               x_col='file',
+                                               y_col=LABEL_COL,
+                                               class_mode='raw',
+                                               shuffle=False,
+                                               target_size=(img_height,
+                                                            img_width),
+                                               batch_size=BATCH_SIZE)
+            vn_preds = mod.predict(vn_gen, verbose=1).flatten()
+            vn_stats = tm.clf_metrics(vn_df.abnormal.values,
+                                      vn_preds,
+                                      cutpoint=cut)
+
+            other_stats = pd.concat([nih_stats, sh_stats, mc_stats, vn_stats],
                                     axis=0)
-            other_stats['dataset'] = ['nih', 'shenzhen', 'montgomery']
-            other_stats['model_type'] = [TASK] * 3
+            other_stats['dataset'] = ['nih', 'shenzhen', 'montgomery',
+                                      'vietnam']
+            other_stats['model_type'] = [TASK] * 4
             other_stats.to_csv(STATS_DIR + 'other_stats.csv', index=False)
 
     else:

@@ -30,22 +30,22 @@ def good_dicom(ds):
     bad_id = False
     bad_image = False
     bad_pixels = False
-    
+
     # Checking the transfer syntax ID
-    no_tsid = 'TransferSyntaxUID' not in ds.file_meta 
+    no_tsid = 'TransferSyntaxUID' not in ds.file_meta
     if not no_tsid:
         tsid = ds.file_meta.TransferSyntaxUID
         if tsid in ['1.2.840.10008.1.2.4.53', '1.2.840.10008.1.2.4.55']:
             bad_id = True
-    
+
     # Checking the pixel data
     no_pixels = ('PixelData' not in ds or 'PhotometricInterpretation' not in ds)
-    if not no_pixels: 
+    if not no_pixels:
         try:
             ds.pixel_array
         except:
             bad_pixels = True
-    
+
     # Gathering the info
     conditions = [no_tsid, bad_id, no_pixels, bad_pixels]
     if np.any(conditions):
@@ -168,7 +168,10 @@ def convert_to_png(file,
             return
         else:
             if write_image:
-                png_name = file.replace('dcm', 'png')
+                if 'dcm' in file:
+                    png_name = file.replace('dcm', 'png')
+                else:
+                    png_name = file.replace('dicom', 'png')
                 if prefix:
                     png_name = prefix + png_name
 
