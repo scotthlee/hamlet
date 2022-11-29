@@ -33,7 +33,7 @@ if __name__ == '__main__':
                         abnormal/normal model.')
     parser.add_argument('--abtb_mod_dir',
                         type=str,
-                        default='output/abnormal/checkpoints/training/',
+                        default='output/abnormal_tb/checkpoints/training/',
                         help='Path to the folder holding the trained \
                         abnormal-TB model.')
     parser.add_argument('--find_mod_dir',
