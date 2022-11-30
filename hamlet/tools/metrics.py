@@ -2,7 +2,7 @@ import numpy as np
 import pandas as pd
 
 from scipy.stats import binom
-from sklearn.metrics import roc_auc_score, average_precision_score
+from sklearn.metrics import roc_auc_score, average_precision_score, roc_curve
 
 
 def threshold(probs, cutpoint=.5):
@@ -173,6 +173,19 @@ def brier_score(targets, guesses):
         bs = row_sums.mean()
     return bs
 
+
+def spec_at_sens(y, y_, sens=0.7, return_df=True):
+    """Calculates maximum specifity that achieves the required level of 
+    specificity.
+    """
+    fprs, tprs, cuts = roc_curve(y, y_)
+    nearest = np.min(np.where(tprs >= sens)[0])
+    out = tprs[nearest], 1 - fprs[nearest], cuts[nearest]
+    if return_df:
+        out = pd.DataFrame(out).transpose()
+        out.columns = ['sens', 'spec', 'cutpoint']
+    return out
+    
 
 def clf_metrics(y, y_,
                 cutpoint=0.5,
