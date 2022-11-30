@@ -7,10 +7,9 @@ from hamlet.tools import multi as tm
 from hamlet.tools import inference as ti
 
 
-# Loading the original data for getting cutpoints based on prevalence
+# Setting the directory and columns of interest
 data_dir = '/Users/scottlee/OneDrive - CDC/Documents/projects/hamlet/'
-val = pd.read_csv(data_dir + 'val.csv')
-test = pd.read_csv(data_dir + 'test.csv')
+samp = pd.read_csv(data_dir + 'samp.csv')
 find_cols = [
     'infiltrate', 'reticular', 'cavity',
     'nodule', 'pleural_effusion', 'hilar_adenopathy',
@@ -18,10 +17,50 @@ find_cols = [
     'pleural_reaction', 'other'
 ]
 find_prob_cols = [s + '_prob' for s in find_cols]
-N = samp.shape[0]
-ab_p = np.round(samp.abnormal.sum() / N, 2)
-abtb_p = np.round(samp.abnormal_tb.sum() / N, 2)
-find_p  = np.round(samp[find_cols].sum() / N, 4)
+
+# Loading the validation and test files
+val = samp[samp.split == 'val'].reset_index(drop=True).sort_values('id')
+val_probs = pd.read_csv(data_dir + 'val_predictions.csv')
+val = pd.merge(val, val_probs, on=['id'])
+
+test = samp[samp.split == 'test'].reset_index(drop=True).sort_values('id')
+test_probs = pd.read_csv(data_dir + 'test_predictions.csv')
+test = pd.merge(test, test_probs, on=['id'])
+
+# Loading the external datasets;
+# TO DO: refactor generate_predictions so it can write to an existing 
+# set of labels.
+nih = pd.read_csv(data_dir + 'output/other/nih_labels.csv')
+nih = nih.rename(columns={'Abnormal': 'abnormal'})
+nih['id'] = [s[:-4] for s in nih['Image ID']]
+nih_probs = pd.read_csv(data_dir + 'output/other/nih_predictions.csv')
+nih = pd.merge(nih, nih_probs, on='id')
+
+shen = pd.read_csv(data_dir + 'output/other/shen_labels.csv')
+shen['id'] = [s[:-4] for s in shen.study_id]
+shen_probs = pd.read_csv(data_dir + 'output/other/shen_predictions.csv')
+shen = pd.merge(shen, shen_probs, on='id')
+
+mcu = pd.read_csv(data_dir + 'output/other/mcu_labels.csv')
+mcu['id'] = [s[:-4] for s in mcu.study_id]
+mcu_probs = pd.read_csv(data_dir + 'output/other/mcu_predictions.csv')
+mcu = pd.merge(mcu, mcu_probs, on='id')
+
+viet = pd.read_csv(data_dir + 'output/other/viet_labels.csv')
+viet.rename(columns={'image_id': 'id'}, inplace=True)
+viet_probs = pd.read_csv(data_dir + 'output/other/viet_predictions.csv')
+viet = pd.merge(viet, viet_probs, on='id')
+
+# Getting the baeline prevalence for the different outcomes, excluding
+# images gathered specifically for the study (i.e., only using images
+# gathered under the screening program's normal operating conditions)
+all_df = pd.read_csv(data_dir + 'all.csv')
+all_df = all_df[[s in ['immigrant', 'refugee'] for s in all_df.source]
+N = all_df.shape[0]
+ab_p = np.round(all_df.abnormal.sum() / N, 2)
+abtb_p = np.round(all_df.abnormal_tb.sum() / N, 2)
+find_p  = np.round(all_df[find_cols].sum() / N, 4)
+all_df = []
 
 # Getting the cutpoints
 ab_cuts = ti.get_cutpoint(val.abnormal,
@@ -31,7 +70,7 @@ abtb_cuts = ti.get_cutpoint(val.abnormal_tb,
                             val.abnormal_tb_prob,
                             p_adj=abtb_p)
 find_cuts = ti.get_cutpoints(val[find_cols].values,
-                             val[[s + '_prob' for s in find_cols]].values,
+                             val[find_prob_cols].values,
                              column_names=find_cols,
                              p_adj=find_p)
 all_cuts = {'abnormal': ab_cuts,
