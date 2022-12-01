@@ -48,28 +48,28 @@ def f_score(y, y_, b=1, undef_val=0):
         return undef_val
 
 
-def sensitivity(y, y_, undef_val=0):
+def sensitivity(y, y_, undef_val=0.0):
     """Calculates sensitivity, or recall."""
     tp = np.sum((y ==1) & (y_ == 1))
     Np = y.sum()
     return (tp / Np) if Np != 0 else undef_val
 
 
-def specificity(y, y_, undef_val=0):
+def specificity(y, y_, undef_val=0.0):
     """Calculates specificity, or 1 - FPR."""
     tn = np.sum((y == 0) & (y_ == 0))
     Nn = np.sum(y == 0)
     return (tn / Nn) if Nn != 0 else undef_val
 
 
-def positive_predictive_value(y, y_, undef_val=0):
+def positive_predictive_value(y, y_, undef_val=0.0):
     """Calculates positive predictive value, or precision."""
     tp = np.sum((y == 1) & (y_ == 1))
     pNp = y_.sum()
     return tp / pNp if pNp != 0 else undef_val
 
 
-def negative_predictive_value(y, y_, undef_val=0):
+def negative_predictive_value(y, y_, undef_val=0.0):
     """Calculates negative predictive value."""
     tn = np.sum((y == 0) & (y_ == 0))
     pNn = np.sum(y_ == 0)
@@ -174,15 +174,18 @@ def brier_score(targets, guesses):
     return bs
 
 
-def spec_at_sens(y, y_, sens=0.7, return_df=True):
+def spec_at_sens(y, y_, sens=0.7, return_df=True, round=2, pct=True):
     """Calculates maximum specifity that achieves the required level of 
     specificity.
     """
-    fprs, tprs, cuts = roc_curve(y, y_)
+    fprs, tprs, cuts = roc_curve(y, y_, drop_intermediate=False)
     nearest = np.min(np.where(tprs >= sens)[0])
-    out = tprs[nearest], 1 - fprs[nearest], cuts[nearest]
+    out = [tprs[nearest], 1 - fprs[nearest], cuts[nearest]]
+    if pct:
+        out[0] *= 100
+        out[1] *= 100
     if return_df:
-        out = pd.DataFrame(out).transpose()
+        out = pd.DataFrame(out).transpose().round(round)
         out.columns = ['sens', 'spec', 'cutpoint']
     return out
     
@@ -279,8 +282,8 @@ def clf_metrics(y, y_,
         brier = np.round(brier_score(y, y_), round)
 
     # Doing sens and spec first
-    sens = sensitivity(y, y_).round(round)
-    spec = specificity(y, y_).round(round)
+    sens = np.round(sensitivity(y, y_), round)
+    spec = np.round(specificity(y, y_), round)
 
     # Optionally making a reweighted sample
     if p_adj is not None:
@@ -290,11 +293,11 @@ def clf_metrics(y, y_,
         p_adj = y.sum() / y.shape[0]
 
     # Calculating the main binary metrics
-    ppv = positive_predictive_value(y, y_).round(round)
-    npv = negative_predictive_value(y, y_).round(round)
-    mcc = matthews_correlation(y, y_).round(round)
-    f1 = np.round(2 * ppv * npv / (ppv + npv), round)
-    j = np.round(sens + spec - 1, round)
+    ppv = positive_predictive_value(y, y_)
+    npv = negative_predictive_value(y, y_)
+    mcc = matthews_correlation(y, y_)
+    f1 = f1_score(y, y_)
+    j = sens + spec - 1
 
     # Getting the counts
     p = y.sum() / y.shape[0]
@@ -323,8 +326,8 @@ def clf_metrics(y, y_,
     # Calculating some additional measures based on positive calls
     true_prev = int(np.sum(y == 1))
     pred_prev = int(np.sum(y_ == 1))
-    abs_diff = (true_prev - pred_prev) * -1
-    rel_diff = np.round(abs_diff / true_prev, round)
+    abs_diff = np.abs(true_prev - pred_prev)
+    rel_diff = abs_diff / true_prev
     if mcnemar:
         pval = mcnemar_test(y, y_).pval[0]
         if round_pval:
@@ -340,8 +343,18 @@ def clf_metrics(y, y_,
     if mcnemar:
         out['mcnemar'] = pval
 
-    # And finally tacking on the model name
+    # Tacking on the model name
     if mod_name is not None:
         out['model'] = mod_name
+    
+    # And findally rounding 
+    float_cols = ['sens', 'spec', 'ppv',
+                  'npv', 'j', 'f1', 'mcc',
+                  'brier', 'rel_prev_diff']
+    count_cols = ['tp', 'fp', 'tn',
+                  'fn', 'true_prev', 'pred_prev',
+                  'prev_diff']
+    out[float_cols] = out[float_cols].round(round)
+    out[count_cols] = out[count_cols].astype('int64')
 
     return out
