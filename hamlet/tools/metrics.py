@@ -326,7 +326,7 @@ def clf_metrics(y, y_,
     # Calculating some additional measures based on positive calls
     true_prev = int(np.sum(y == 1))
     pred_prev = int(np.sum(y_ == 1))
-    abs_diff = np.abs(true_prev - pred_prev)
+    abs_diff = pred_prev - true_prev
     rel_diff = abs_diff / true_prev
     if mcnemar:
         pval = mcnemar_test(y, y_).pval[0]
