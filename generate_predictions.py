@@ -26,6 +26,15 @@ if __name__ == '__main__':
                         default=None,
                         help='Path where the script should dump the output \
                         files. Writes to img_dir by default.')
+    parser.add_argument('--write_to',
+                        type=str,
+                        default=None,
+                        help='Existing CSV file to which the predictions \
+                        should be written. Must also ')
+    parser.add_argument('--id_column',
+                        type=str,
+                        default='id',
+                        help='Name for the column holding the image IDs.')
     parser.add_argument('--ab_mod_dir',
                         type=str,
                         default='output/abnormal/checkpoints/training/',
@@ -82,6 +91,8 @@ if __name__ == '__main__':
     OUT_DIR = IMG_DIR
     DISTRIBUTED = not args.single_GPU
     PREFIX = args.prefix
+    WRITE_TO = args.write_to
+    ID_COL = args.id_column
     if args.output_dir is not None:
         OUT_DIR = args.output_dir
 
@@ -92,6 +103,12 @@ if __name__ == '__main__':
         strategy = tf.distribute.MirroredStrategy(cross_device_ops=cdo)
     else:
         strategy = tf.distribute.get_strategy()
+
+    # Checking the existing CSV file to make sure it contains the specified
+    # image ID column
+    current_data = pd.read_csv(OUT_DIR + WRITE_TO)
+    no_id = ID_COL + ' must be a valid column in the WRITE_TO CSV file.'
+    assert ID_COL in current_data.columns.values, no_id
 
     # Setting the column labels for the multilabel task
     findings = [
@@ -111,7 +128,7 @@ if __name__ == '__main__':
       batch_size=BATCH_SIZE
     )
 
-    preds_df = pd.DataFrame(test_ids, columns=['id'])
+    preds_df = pd.DataFrame(test_ids, columns=[ID_COL])
 
     # Loading the trained model
     with strategy.scope():
@@ -145,4 +162,12 @@ if __name__ == '__main__':
             abtb_probs = abtb_mod.predict(test_ds, verbose=1).flatten()
             preds_df['abnormal_tb_prob'] = abtb_probs
 
-    preds_df.to_csv(OUT_DIR + PREFIX + 'predictions.csv', index=False)
+    if WRITE_TO:
+        if '.png' in current_data[ID_COL][0]:
+            current_data[ID_COL] = [s[:-4] for s in current_data[ID_COL]]
+        current_data.sort_values(ID_COL, inplace=True)
+        preds_df.sort_values(ID_COL, inplace=True)
+        all_data = pd.merge(current_data, preds_df, on=ID_COL)
+        all_data.to_csv(OUT_DIR + WRITE_TO, index=False)
+    else:
+        preds_df.to_csv(OUT_DIR + PREFIX + 'predictions.csv', index=False)
