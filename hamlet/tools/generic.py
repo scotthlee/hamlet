@@ -21,7 +21,7 @@ def check_fnames(fnames, ids):
         res = p.starmap(check_fname, input)
         p.close()
         p.join()
-    
+
     return np.array(res)
 
 
@@ -37,6 +37,15 @@ def trim_zeroes(fname):
         return fname[:cut] + ending
 
 
+def is_file(fn):
+    """Checks whether a string is a filename."""
+    if '.' in fn:
+        extension = fn[fn.index('.'):]
+        return True, extension
+    else:
+        return False, _
+
+
 def get_size(start_path = '.'):
     total_size = 0
     for dirpath, dirnames, filenames in os.walk(start_path):
@@ -45,7 +54,7 @@ def get_size(start_path = '.'):
             # skip if it is symbolic link
             if not os.path.islink(fp):
                 total_size += os.path.getsize(fp)
-    
+
     return total_size
 
 
@@ -108,7 +117,7 @@ def write_preds(preds,
 
 def merge_cis(c, round=4, mod_name=''):
     str_cis = c.round(round).astype(str)
-    str_paste = pd.DataFrame(str_cis.stat + ' (' + str_cis.lower + 
+    str_paste = pd.DataFrame(str_cis.stat + ' (' + str_cis.lower +
                                  ', ' + str_cis.upper + ')',
                                  columns=[mod_name]).transpose()
     return str_paste
@@ -122,7 +131,7 @@ def merge_ci_list(l, mod_names=None, round=4):
                       for i in range(len(l))]
     else:
         merged_cis = [merge_cis(c, round=round) for c in l]
-    
+
     return pd.concat(merged_cis, axis=0)
 
 
@@ -134,12 +143,12 @@ def crosstab(df, var, levels=None, col='N'):
     return out
 
 
-def vartab(df, var, 
+def vartab(df, var,
            varname=None,
-           levels=None, 
-           col='N', 
-           percent=True, 
-           round=0, 
+           levels=None,
+           col='N',
+           percent=True,
+           round=0,
            use_empty=False):
     if varname is None:
         varname = var

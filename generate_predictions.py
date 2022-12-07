@@ -13,14 +13,14 @@ import tensorflow as tf
 
 from hamlet import models
 from hamlet.tools import metrics as tm
-
+from hamlet.tools import generic as tg
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--image_dir',
                         type=str,
-                        help='Path to the directory holding the folder with \
-                        the images for prediction.')
+                        help='Path to the folder holding the images for  \
+                        prediction.')
     parser.add_argument('--output_dir',
                         type=str,
                         default=None,
@@ -104,12 +104,6 @@ if __name__ == '__main__':
     else:
         strategy = tf.distribute.get_strategy()
 
-    # Checking the existing CSV file to make sure it contains the specified
-    # image ID column
-    current_data = pd.read_csv(OUT_DIR + WRITE_TO)
-    no_id = ID_COL + ' must be a valid column in the WRITE_TO CSV file.'
-    assert ID_COL in current_data.columns.values, no_id
-
     # Setting the column labels for the multilabel task
     findings = [
         'infiltrate', 'reticular', 'cavity',
@@ -118,11 +112,19 @@ if __name__ == '__main__':
         'pleural_reaction', 'other', 'miliary'
     ]
 
+    # Checking the existing CSV file to make sure it contains the specified
+    # image ID column
+    if WRITE_TO:
+        current_data = pd.read_csv(OUT_DIR + WRITE_TO)
+        no_id = ID_COL + ' must be a valid column in the WRITE_TO CSV file.'
+        assert ID_COL in current_data.columns.values, no_id
+
     # Loading the data
-    test_files = os.listdir(IMG_DIR + 'img/')
+    test_files = os.listdir(IMG_DIR)
     test_ids = [f[:-4] for f in test_files]
     test_ds = tf.keras.preprocessing.image_dataset_from_directory(
       IMG_DIR,
+      labels=None,
       shuffle=False,
       image_size=(IMG_DIM, IMG_DIM),
       batch_size=BATCH_SIZE
@@ -163,8 +165,10 @@ if __name__ == '__main__':
             preds_df['abnormal_tb_prob'] = abtb_probs
 
     if WRITE_TO:
-        if '.png' in current_data[ID_COL][0]:
-            current_data[ID_COL] = [s[:-4] for s in current_data[ID_COL]]
+        is_file = tg.is_file(current_data[ID_COL][0])
+        if is_file[0]:
+            ids = current_data[ID_COL].str.replace(is_file[1], '')
+            current_data[ID_COL] = ids
         current_data.sort_values(ID_COL, inplace=True)
         preds_df.sort_values(ID_COL, inplace=True)
         all_data = pd.merge(current_data, preds_df, on=ID_COL)
