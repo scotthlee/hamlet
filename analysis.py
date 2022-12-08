@@ -92,30 +92,13 @@ pickle.dump(all_cis, open(data_dir + 'cis.pkl', 'wb'))
 # Loading the external datasets;
 # TO DO: refactor generate_predictions so it can write to an existing 
 # set of labels.
-nih = pd.read_csv(data_dir + 'output/other/nih_labels.csv')
-nih = nih.rename(columns={'Abnormal': 'abnormal'})
-nih['id'] = [s[:-4] for s in nih['Image ID']]
-nih_probs = pd.read_csv(data_dir + 'output/other/nih_predictions.csv')
-nih = pd.merge(nih, nih_probs, on='id')
-
-shen = pd.read_csv(data_dir + 'output/other/shen_labels.csv')
-shen['id'] = [s[:-4] for s in shen.study_id]
-shen_probs = pd.read_csv(data_dir + 'output/other/shen_predictions.csv')
-shen = pd.merge(shen, shen_probs, on='id')
-
-mcu = pd.read_csv(data_dir + 'output/other/mcu_labels.csv')
-mcu['id'] = [s[:-4] for s in mcu.study_id]
-mcu_probs = pd.read_csv(data_dir + 'output/other/mcu_predictions.csv')
-mcu = pd.merge(mcu, mcu_probs, on='id')
-
-viet = pd.read_csv(data_dir + 'output/other/viet_labels.csv')
-viet.rename(columns={'image_id': 'id'}, inplace=True)
-viet_probs = pd.read_csv(data_dir + 'output/other/viet_predictions.csv')
-viet = pd.merge(viet, viet_probs, on='id')
+nih = pd.read_csv(data_dir + 'output/other/nih.csv')
+shen = pd.read_csv(data_dir + 'output/other/shen.csv')
+mcu = pd.read_csv(data_dir + 'output/other/mcu.csv')
+viet = pd.read_csv(data_dir + 'output/other/viet.csv')
 
 ext_dfs = [nih, shen, mcu, viet]
 ext_names = ['nih', 'shenzhen', 'mcu', 'vietnam']
-
 
 # Making a table of AUCs for the external datasets
 na_str = np.nan
