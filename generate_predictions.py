@@ -13,19 +13,28 @@ import tensorflow as tf
 
 from hamlet import models
 from hamlet.tools import metrics as tm
-
+from hamlet.tools import generic as tg
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--image_dir',
                         type=str,
-                        help='Path to the directory holding the folder with \
-                        the images for prediction.')
+                        help='Path to the folder holding the images for  \
+                        prediction.')
     parser.add_argument('--output_dir',
                         type=str,
                         default=None,
                         help='Path where the script should dump the output \
                         files. Writes to img_dir by default.')
+    parser.add_argument('--write_to',
+                        type=str,
+                        default=None,
+                        help='Existing CSV file to which the predictions \
+                        should be written. Must also ')
+    parser.add_argument('--id_column',
+                        type=str,
+                        default='id',
+                        help='Name for the column holding the image IDs.')
     parser.add_argument('--ab_mod_dir',
                         type=str,
                         default='output/abnormal/checkpoints/training/',
@@ -82,6 +91,8 @@ if __name__ == '__main__':
     OUT_DIR = IMG_DIR
     DISTRIBUTED = not args.single_GPU
     PREFIX = args.prefix
+    WRITE_TO = args.write_to
+    ID_COL = args.id_column
     if args.output_dir is not None:
         OUT_DIR = args.output_dir
 
@@ -101,17 +112,25 @@ if __name__ == '__main__':
         'pleural_reaction', 'other', 'miliary'
     ]
 
+    # Checking the existing CSV file to make sure it contains the specified
+    # image ID column
+    if WRITE_TO:
+        current_data = pd.read_csv(OUT_DIR + WRITE_TO)
+        no_id = ID_COL + ' must be a valid column in the WRITE_TO CSV file.'
+        assert ID_COL in current_data.columns.values, no_id
+
     # Loading the data
-    test_files = os.listdir(IMG_DIR + 'img/')
+    test_files = os.listdir(IMG_DIR)
     test_ids = [f[:-4] for f in test_files]
     test_ds = tf.keras.preprocessing.image_dataset_from_directory(
       IMG_DIR,
+      labels=None,
       shuffle=False,
       image_size=(IMG_DIM, IMG_DIM),
       batch_size=BATCH_SIZE
     )
 
-    preds_df = pd.DataFrame(test_ids, columns=['id'])
+    preds_df = pd.DataFrame(test_ids, columns=[ID_COL])
 
     # Loading the trained model
     with strategy.scope():
@@ -145,4 +164,14 @@ if __name__ == '__main__':
             abtb_probs = abtb_mod.predict(test_ds, verbose=1).flatten()
             preds_df['abnormal_tb_prob'] = abtb_probs
 
-    preds_df.to_csv(OUT_DIR + PREFIX + 'predictions.csv', index=False)
+    if WRITE_TO:
+        is_file = tg.is_file(current_data[ID_COL][0])
+        if is_file[0]:
+            ids = current_data[ID_COL].str.replace(is_file[1], '')
+            current_data[ID_COL] = ids
+        current_data.sort_values(ID_COL, inplace=True)
+        preds_df.sort_values(ID_COL, inplace=True)
+        all_data = pd.merge(current_data, preds_df, on=ID_COL)
+        all_data.to_csv(OUT_DIR + WRITE_TO, index=False)
+    else:
+        preds_df.to_csv(OUT_DIR + PREFIX + 'predictions.csv', index=False)
