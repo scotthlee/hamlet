@@ -3,6 +3,7 @@ import pandas as pd
 import os
 
 from sklearn.model_selection import train_test_split
+from dateutil.relativedelta import relativedelta
 
 from hamlet.tools.generic import check_fnames, trim_zeroes
 
@@ -143,11 +144,12 @@ tabs.to_csv(base_dir + 'all_ages_tab.csv')
 all_df['exam_date'] = pd.to_datetime(all_df.exam_date, errors='coerce')
 all_df['date_of_birth'] = pd.to_datetime(all_df.date_of_birth, errors='coerce')
 all_df.dropna(axis=0, inplace=True, subset=['exam_date', 'date_of_birth'])
-ages = all_df.exam_date - all_df.date_of_birth
-days = ages.dt.days.values
-all_df['age_days'] = days
-adults = np.where(days >= 15*365)[0]
-kids = np.where(days < 15*365)[0]
+all_df.reset_index(drop=True, inplace=True)
+rds = [relativedelta(all_df.exam_date[i], all_df.date_of_birth[i])
+       for i in range(all_df.shape[0])]
+all_df['age_years'] = [rd.years for rd in rds]
+adults = np.where(all_df.age_years >= 15)[0]
+kids = np.where(all_df.age_years < 15)[0]
 all_df.iloc[kids, :].to_csv(base_dir + 'kids.csv', index=False)
 all_df = all_df.iloc[adults, :].reset_index(drop=True)
 
