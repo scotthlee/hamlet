@@ -61,7 +61,7 @@ smears = df[['smear_1', 'smear_2', 'smear_3']].sum(1) > 0
 df['smear'] = smears.astype(np.uint8)
 cultures = df[['culture_1', 'culture_2', 'culture_3']].sum(1) > 0
 df['culture'] = cultures.astype(np.uint8)
-df['tb_disease'] = np.array(smears + cultures > 0, dtype=np.uint8)
+df['tb_disease'] = df.class_a.fillna(0)
 
 # Adding a variable for the data source
 source = np.array([''] * df.shape[0], dtype='U16')
