@@ -9,7 +9,6 @@ data_dir = '~/OneDrive - CDC/Documents/projects/hamlet/'
 df = pd.read_csv(data_dir + 'samp.csv')
 
 # Making age group variables
-df['age_years'] = (df.age_days / 365).round().astype(int)
 df['age_group'] = pd.cut(df.age_years,
                          bins=[15, 25, 35, 45, 55, 65, 99],
                          labels=['15-24', '25-34', '35-44',

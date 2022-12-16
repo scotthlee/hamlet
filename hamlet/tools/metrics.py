@@ -174,7 +174,7 @@ def brier_score(targets, guesses):
     return bs
 
 
-def spec_at_sens(y, y_, sens=0.7, return_df=True, round=2, pct=True):
+def spec_at_sens(y, y_, sens=0.9, return_df=True, round=2, pct=True):
     """Calculates maximum specifity that achieves the required level of 
     specificity.
     """

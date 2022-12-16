@@ -85,7 +85,7 @@ find_ct_cis = [tm.boot_cis(test[c].fillna(0),
                for i, c in enumerate(find_cols)]
 all_cis = [
     ab_j_cis, ab_ct_cis, abtb_j_cis,
-    abtb_ct_cis, find_j_cis
+    abtb_ct_cis, find_j_cis, find_ct_cis
 ]
 pickle.dump(all_cis, open(data_dir + 'cis.pkl', 'wb'))
 
@@ -135,16 +135,18 @@ auc_tab.to_csv(data_dir + 'analysis/tables/ext_aucs.csv')
 
 # Making a table of specs at 70% sens for the external TB datasets
 abtb_ab = pd.concat([
+    metrics.spec_at_sens(test.abnormal_tb, test.abnormal_prob),
     metrics.spec_at_sens(shen.abnormal, shen.abnormal_prob),
     metrics.spec_at_sens(mcu.abnormal, mcu.abnormal_prob),
     metrics.spec_at_sens(viet.abnormal_tb, viet.abnormal_prob)
 ]).reset_index(drop=True)
-abtb_ab.index = ext_names[1:]
+abtb_ab.index = ['hamlet'] + ext_names[1:]
 abtb_abtb = pd.concat([
+    metrics.spec_at_sens(test.abnormal_tb, test.abnormal_tb_prob),
     metrics.spec_at_sens(shen.abnormal, shen.abnormal_tb_prob),
     metrics.spec_at_sens(mcu.abnormal, mcu.abnormal_tb_prob),
     metrics.spec_at_sens(viet.abnormal_tb, viet.abnormal_tb_prob)
 ]).reset_index(drop=True)
-abtb_abtb.index = ext_names[1:]
-spec_at_70 = pd.concat([abtb_ab, abtb_abtb], axis=1)
-spec_at_70.to_csv(data_dir + 'analysis/tables/spec_70.csv')
+abtb_abtb.index = ['hamlet'] + ext_names[1:]
+sens90 = pd.concat([abtb_ab, abtb_abtb], axis=1)
+sens90.to_csv(data_dir + 'analysis/tables/sens90.csv')
