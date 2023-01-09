@@ -141,3 +141,66 @@ for j, s in enumerate(splits):
 
 tb_tabs = pd.concat(tb_tabs, axis=1)
 tb_tabs.to_csv(data_dir + 'analysis/tb_tabs.csv')
+
+
+# Loading the external datasets;
+# TO DO: refactor generate_predictions so it can write to an existing 
+# set of labels.
+nih = pd.read_csv(data_dir + 'output/other/nih.csv')
+shen = pd.read_csv(data_dir + 'output/other/shen.csv')
+mcu = pd.read_csv(data_dir + 'output/other/mcu.csv')
+viet = pd.read_csv(data_dir + 'output/other/viet.csv')
+
+ext_dfs = [nih, shen, mcu, viet]
+ext_names = ['nih', 'shenzhen', 'mcu', 'vietnam']
+
+# Making a table of AUCs for the external datasets
+na_str = np.nan
+ab_ab = [
+    auroc(nih.abnormal, nih.abnormal_prob),
+    na_str,
+    na_str,
+    auroc(viet.abnormal, viet.abnormal_prob)
+]
+ab_abtb = [
+    auroc(nih.abnormal, nih.abnormal_tb_prob),
+    na_str,
+    na_str,
+    auroc(viet.abnormal, viet.abnormal_tb_prob)
+]
+abtb_ab = [
+    na_str,
+    auroc(shen.abnormal, shen.abnormal_prob),
+    auroc(mcu.abnormal, mcu.abnormal_prob),
+    auroc(viet.abnormal_tb, viet.abnormal_prob)
+]
+abtb_abtb = [
+    na_str,
+    auroc(shen.abnormal, shen.abnormal_tb_prob),
+    auroc(mcu.abnormal, mcu.abnormal_tb_prob),
+    auroc(viet.abnormal_tb, viet.abnormal_tb_prob)
+]
+auc_tab = pd.DataFrame([ab_ab, ab_abtb, abtb_ab, abtb_abtb],
+                       index=['ab/ab', 'ab/abtb',
+                                'abtb/ab', 'abtb/abtb'],
+                       columns=ext_names).transpose()
+auc_tab = (auc_tab * 100).round(2)
+auc_tab.to_csv(data_dir + 'analysis/tables/ext_aucs.csv')
+
+# Making a table of specs at 70% sens for the external TB datasets
+abtb_ab = pd.concat([
+    metrics.spec_at_sens(test.abnormal_tb, test.abnormal_prob),
+    metrics.spec_at_sens(shen.abnormal, shen.abnormal_prob),
+    metrics.spec_at_sens(mcu.abnormal, mcu.abnormal_prob),
+    metrics.spec_at_sens(viet.abnormal_tb, viet.abnormal_prob)
+]).reset_index(drop=True)
+abtb_ab.index = ['hamlet'] + ext_names[1:]
+abtb_abtb = pd.concat([
+    metrics.spec_at_sens(test.abnormal_tb, test.abnormal_tb_prob),
+    metrics.spec_at_sens(shen.abnormal, shen.abnormal_tb_prob),
+    metrics.spec_at_sens(mcu.abnormal, mcu.abnormal_tb_prob),
+    metrics.spec_at_sens(viet.abnormal_tb, viet.abnormal_tb_prob)
+]).reset_index(drop=True)
+abtb_abtb.index = ['hamlet'] + ext_names[1:]
+sens90 = pd.concat([abtb_ab, abtb_abtb], axis=1)
+sens90.to_csv(data_dir + 'analysis/tables/sens90.csv')

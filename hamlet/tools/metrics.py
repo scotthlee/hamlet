@@ -174,19 +174,26 @@ def brier_score(targets, guesses):
     return bs
 
 
-def spec_at_sens(y, y_, sens=0.9, return_df=True, round=2, pct=True):
+def sens_spec_target(y, y_,
+           sens_target=0.9,
+           spec_target=0.7, 
+           return_df=True, 
+           round=2, 
+           pct=True):
     """Calculates maximum specifity that achieves the required level of 
     specificity.
     """
     fprs, tprs, cuts = roc_curve(y, y_, drop_intermediate=False)
-    nearest = np.min(np.where(tprs >= sens)[0])
-    out = [tprs[nearest], 1 - fprs[nearest], cuts[nearest]]
+    specs = 1 - fprs
+    se_near = np.min(np.where(tprs >= sens_target)[0])
+    sp_near = np.max(np.where(specs >= spec_target)[0])
+    sens_out = [tprs[se_near], specs[se_near], cuts[se_near]]
+    spec_out = [tprs[sp_near], specs[sp_near], cuts[sp_near]]
+    out = pd.concat([pd.DataFrame(sens_out), 
+                     pd.DataFrame(spec_out)], axis=1).transpose()
+    out.columns = ['sens', 'spec', 'cutpoint']
     if pct:
-        out[0] *= 100
-        out[1] *= 100
-    if return_df:
-        out = pd.DataFrame(out).transpose().round(round)
-        out.columns = ['sens', 'spec', 'cutpoint']
+        out[['sens', 'spec']] *= 100
     return out
     
 
@@ -198,7 +205,9 @@ def clf_metrics(y, y_,
                 round=4,
                 round_pval=False,
                 mcnemar=False,
-                argmax_axis=1):
+                argmax_axis=1,
+                only=None,
+                drop=None):
     # Converting pd.Series to np.array
     stype = type(pd.Series([0]))
     if type(y_) == stype:
@@ -356,5 +365,9 @@ def clf_metrics(y, y_,
                   'prev_diff']
     out[float_cols] = out[float_cols].round(round)
     out[count_cols] = out[count_cols].astype('int64')
-
+    
+    # dropping unwanted columns
+    if only:
+        out = out[only]
+    
     return out

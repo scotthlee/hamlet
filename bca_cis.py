@@ -30,6 +30,15 @@ test = samp[samp.split == 'test'].reset_index(drop=True).sort_values('id')
 test_probs = pd.read_csv(data_dir + 'test_predictions.csv')
 test = pd.merge(test, test_probs, on=['id'])
 
+# Loading the external datasets;
+nih = pd.read_csv(data_dir + 'output/other/nih.csv')
+shen = pd.read_csv(data_dir + 'output/other/shen.csv')
+mcu = pd.read_csv(data_dir + 'output/other/mcu.csv')
+viet = pd.read_csv(data_dir + 'output/other/viet.csv')
+
+ext_dfs = [nih, shen, mcu, viet]
+ext_names = ['nih', 'shenzhen', 'mcu', 'vietnam']
+
 # Getting the baeline prevalence for the different outcomes, excluding
 # images gathered specifically for the study (i.e., only using images
 # gathered under the screening program's normal operating conditions)
@@ -41,7 +50,7 @@ abtb_p = np.round(all_df.abnormal_tb.sum() / N, 2)
 find_p  = np.round(all_df[find_cols].sum() / N, 4)
 all_df = []
 
-# Getting the cutpoints
+# Getting the cutpoints for HaMLET
 ab_cuts = ti.get_cutpoint(val.abnormal,
                           val.abnormal_prob,
                           p_adj=ab_p)
@@ -56,15 +65,19 @@ all_cuts = {'abnormal': ab_cuts,
             'abnormal_tb': abtb_cuts,
             'findings': find_cuts}
 
+# And for the external datasets
+nih_cuts = ti.get_cutpoint(nih.abnormal,
+                           nih.abnormal_prob)
+viet_ab_cuts = ti.get_cutpoint(viet.abnormal,
+                               viet.abnormal_prob)
+viet_abtb_cuts = ti.get_cutpoint(viet.abnormal_tb,
+                                 viet.abnormal_tb_prob)
+shen_cuts = ti.get_cutpoint(shen.abnormal,
+                            shen.abnormal_prob)
+mcu_cuts = ti.get_cutpoint(mcu.abnormal,
+                           mcu.abnormal_prob)
+
 # Getting the confidence intervals
-ab_j_cis = tm.boot_cis(test.abnormal,
-                       test.abnormal_prob,
-                       cutpoint=ab_cuts['j'],
-                       p_adj=ab_p)
-ab_ct_cis = tm.boot_cis(test.abnormal,
-                        test.abnormal_prob,
-                        cutpoint=ab_cuts['count_adj'],
-                        p_adj=ab_p)
 abtb_j_cis = tm.boot_cis(test.abnormal_tb,
                          test.abnormal_tb_prob,
                          cutpoint=abtb_cuts['j'],
@@ -83,11 +96,8 @@ find_ct_cis = [tm.boot_cis(test[c].fillna(0),
                            p_adj=find_p.values[i],
                            cutpoint=find_cuts[c]['count_adj'])
                for i, c in enumerate(find_cols)]
-all_cis = [
-    ab_j_cis, ab_ct_cis, abtb_j_cis,
-    abtb_ct_cis, find_j_cis, find_ct_cis
-]
-pickle.dump(all_cis, open(data_dir + 'cis.pkl', 'wb'))
+ham_cis = [abtb_j_cis, abtb_ct_cis, find_j_cis, find_ct_cis]
+pickle.dump(ham_cis, open(data_dir + 'cis.pkl', 'wb'))
 
 # Loading the external datasets;
 # TO DO: refactor generate_predictions so it can write to an existing 
