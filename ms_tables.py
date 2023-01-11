@@ -1,5 +1,6 @@
 import pandas as pd
 import numpy as np
+import pickle
 
 from hamlet.tools.generic import crosstab, vartab
 
@@ -204,3 +205,7 @@ abtb_abtb = pd.concat([
 abtb_abtb.index = ['hamlet'] + ext_names[1:]
 sens90 = pd.concat([abtb_ab, abtb_abtb], axis=1)
 sens90.to_csv(data_dir + 'analysis/tables/sens90.csv')
+
+# Tables 2 and 3 -- CIs for the binary and multilabel tasks
+ham_cis = pickle.load(open(data_dir + 'ham_cis.pkl', 'rb'))
+ext_cis = pickle.load(open(data_dir + 'ext_cis.pkl', 'rb'))
