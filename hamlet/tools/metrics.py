@@ -174,19 +174,27 @@ def brier_score(targets, guesses):
     return bs
 
 
-def sens_spec_target(y, y_,
-           sens_target=0.9,
-           spec_target=0.7, 
-           return_df=True, 
-           round=2, 
-           pct=True):
+def sens_spec_target(y=None, 
+                     y_=None,
+                     target_sens=0.9,
+                     target_spec=0.7, 
+                     return_df=True,
+                     round=2,
+                     pct=True,
+                     roc=None):
     """Calculates maximum specifity that achieves the required level of 
-    specificity.
+    specificity and vice-versa.
     """
-    fprs, tprs, cuts = roc_curve(y, y_, drop_intermediate=False)
+    if roc:
+        fprs, tprs, cuts = roc
+    else:
+        cond = (y is not None) & (y_ is not None)
+        mess = 'Must either provide targets or precalcualted ROC curve.'
+        assert cond, mess
+        fprs, tprs, cuts = roc_curve(y, y_, drop_intermediate=False)
     specs = 1 - fprs
-    se_near = np.min(np.where(tprs >= sens_target)[0])
-    sp_near = np.max(np.where(specs >= spec_target)[0])
+    se_near = np.min(np.where(tprs >= target_sens)[0])
+    sp_near = np.max(np.where(specs >= target_spec)[0])
     sens_out = [tprs[se_near], specs[se_near], cuts[se_near]]
     spec_out = [tprs[sp_near], specs[sp_near], cuts[sp_near]]
     out = pd.concat([pd.DataFrame(sens_out), 
@@ -206,6 +214,8 @@ def clf_metrics(y, y_,
                 round_pval=False,
                 mcnemar=False,
                 argmax_axis=1,
+                sens_min=0.9,
+                spec_min=0.7,
                 only=None,
                 drop=None):
     # Converting pd.Series to np.array
@@ -286,6 +296,11 @@ def clf_metrics(y, y_,
         auc = roc_auc_score(y, y_)
         brier = brier_score(y, y_)
         ap = average_precision_score(y, y_)
+        ats = sens_spec_target(y, y_,
+                               sens_min,
+                               spec_min,
+                               pct=False)
+        sp_max, se_max = ats.spec.values[0], ats.sens.values[1]
         y_ = threshold(y_, cutpoint)
     else:
         brier = np.round(brier_score(y, y_), round)
@@ -328,6 +343,7 @@ def clf_metrics(y, y_,
     if preds_are_probs:
         out['auc'] = auc
         out['ap'] = ap
+        out[['sens_at', 'spec_at']] = [se_max, sp_max]
     else:
         out['auc'] = 0.0
         out['ap'] = 0.0
