@@ -65,19 +65,7 @@ all_cuts = {'abnormal': ab_cuts,
             'abnormal_tb': abtb_cuts,
             'findings': find_cuts}
 
-# And for the external datasets
-nih_cuts = ti.get_cutpoint(nih.abnormal,
-                           nih.abnormal_prob)
-viet_ab_cuts = ti.get_cutpoint(viet.abnormal,
-                               viet.abnormal_prob)
-viet_abtb_cuts = ti.get_cutpoint(viet.abnormal_tb,
-                                 viet.abnormal_tb_prob)
-shen_cuts = ti.get_cutpoint(shen.abnormal,
-                            shen.abnormal_prob)
-mcu_cuts = ti.get_cutpoint(mcu.abnormal,
-                           mcu.abnormal_prob)
-
-# Getting the confidence intervals
+# Getting the confidence intervals for our data
 abtb_j_cis = tm.boot_cis(test.abnormal_tb,
                          test.abnormal_tb_prob,
                          cutpoint=abtb_cuts['j'],
@@ -97,66 +85,36 @@ find_ct_cis = [tm.boot_cis(test[c].fillna(0),
                            cutpoint=find_cuts[c]['count_adj'])
                for i, c in enumerate(find_cols)]
 ham_cis = [abtb_j_cis, abtb_ct_cis, find_j_cis, find_ct_cis]
-pickle.dump(ham_cis, open(data_dir + 'cis.pkl', 'wb'))
+pickle.dump(ham_cis, open(data_dir + 'ham_cis.pkl', 'wb'))
 
-# Loading the external datasets;
-# TO DO: refactor generate_predictions so it can write to an existing 
-# set of labels.
-nih = pd.read_csv(data_dir + 'output/other/nih.csv')
-shen = pd.read_csv(data_dir + 'output/other/shen.csv')
-mcu = pd.read_csv(data_dir + 'output/other/mcu.csv')
-viet = pd.read_csv(data_dir + 'output/other/viet.csv')
+# Cutoffs for the external datasets
+nih_cuts = ti.get_cutpoint(nih.abnormal,
+                           nih.abnormal_prob)
+viet_ab_cuts = ti.get_cutpoint(viet.abnormal,
+                               viet.abnormal_prob)
+viet_abtb_cuts = ti.get_cutpoint(viet.abnormal_tb,
+                                 viet.abnormal_tb_prob)
+shen_cuts = ti.get_cutpoint(shen.abnormal,
+                            shen.abnormal_prob)
+mcu_cuts = ti.get_cutpoint(mcu.abnormal,
+                           mcu.abnormal_prob)
 
-ext_dfs = [nih, shen, mcu, viet]
-ext_names = ['nih', 'shenzhen', 'mcu', 'vietnam']
-
-# Making a table of AUCs for the external datasets
-na_str = np.nan
-ab_ab = [
-    auroc(nih.abnormal, nih.abnormal_prob),
-    na_str,
-    na_str,
-    auroc(viet.abnormal, viet.abnormal_prob)
-]
-ab_abtb = [
-    auroc(nih.abnormal, nih.abnormal_tb_prob),
-    na_str,
-    na_str,
-    auroc(viet.abnormal, viet.abnormal_tb_prob)
-]
-abtb_ab = [
-    na_str,
-    auroc(shen.abnormal, shen.abnormal_prob),
-    auroc(mcu.abnormal, mcu.abnormal_prob),
-    auroc(viet.abnormal_tb, viet.abnormal_prob)
-]
-abtb_abtb = [
-    na_str,
-    auroc(shen.abnormal, shen.abnormal_tb_prob),
-    auroc(mcu.abnormal, mcu.abnormal_tb_prob),
-    auroc(viet.abnormal_tb, viet.abnormal_tb_prob)
-]
-auc_tab = pd.DataFrame([ab_ab, ab_abtb, abtb_ab, abtb_abtb],
-                       index=['ab/ab', 'ab/abtb',
-                                'abtb/ab', 'abtb/abtb'],
-                       columns=ext_names).transpose()
-auc_tab = (auc_tab * 100).round(2)
-auc_tab.to_csv(data_dir + 'analysis/tables/ext_aucs.csv')
-
-# Making a table of specs at 70% sens for the external TB datasets
-abtb_ab = pd.concat([
-    metrics.spec_at_sens(test.abnormal_tb, test.abnormal_prob),
-    metrics.spec_at_sens(shen.abnormal, shen.abnormal_prob),
-    metrics.spec_at_sens(mcu.abnormal, mcu.abnormal_prob),
-    metrics.spec_at_sens(viet.abnormal_tb, viet.abnormal_prob)
-]).reset_index(drop=True)
-abtb_ab.index = ['hamlet'] + ext_names[1:]
-abtb_abtb = pd.concat([
-    metrics.spec_at_sens(test.abnormal_tb, test.abnormal_tb_prob),
-    metrics.spec_at_sens(shen.abnormal, shen.abnormal_tb_prob),
-    metrics.spec_at_sens(mcu.abnormal, mcu.abnormal_tb_prob),
-    metrics.spec_at_sens(viet.abnormal_tb, viet.abnormal_tb_prob)
-]).reset_index(drop=True)
-abtb_abtb.index = ['hamlet'] + ext_names[1:]
-sens90 = pd.concat([abtb_ab, abtb_abtb], axis=1)
-sens90.to_csv(data_dir + 'analysis/tables/sens90.csv')
+# And their intervals
+nih_cis = tm.boot_cis(nih.abnormal,
+                      nih.abnormal_prob,
+                      cutpoint=nih_cuts['j'])
+viet_ab_cis = tm.boot_cis(viet.abnormal,
+                          viet.abnormal_prob,
+                          cutpoint=viet_ab_cuts['j'])
+viet_abtb_cis = tm.boot_cis(viet.abnormal_tb,
+                            viet.abnormal_tb_prob,
+                            cutpoint=viet_abtb_cuts['j'])
+shen_cis = tm.boot_cis(shen.abnormal,
+                       shen.abnormal_tb_prob,
+                       cutpoint=shen_cuts['j'])
+mcu_cis = tm.boot_cis(mcu.abnormal,
+                      mcu.abnormal_tb_prob,
+                      cutpoint=mcu_cuts['j'])
+ext_cis = [nih_cis, viet_ab_cis, viet_abtb_cis,
+           shen_cis, mcu_cis]
+pickle.dump(ext_cis, open(data_dir + 'ext_cis.pkl', 'wb'))
