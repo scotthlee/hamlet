@@ -23,7 +23,7 @@ def call_model(images, call_model_args=None, expected_keys=None):
         if expected_keys==[saliency.base.INPUT_OUTPUT_GRADIENTS]:
             tape.watch(images)
             _, output_layer = model(images)
-            output_layer = output_layer[:,target_class_idx]
+            output_layer = output_layer[:, target_class_idx]
             gradients = np.array(tape.gradient(output_layer, images))
             return {saliency.base.INPUT_OUTPUT_GRADIENTS: gradients}
         else:
@@ -49,7 +49,7 @@ def compute_masks(image,
                   call_model_args,
                   smooth=True,
                   methods=['gradient',
-                           'gradcam', 
+                           'gradcam',
                            'xrai'],
                   xrai_mode='full',
                   xrai_level=70,
@@ -66,7 +66,7 @@ def compute_masks(image,
         obj_names = list(method_dict.values())
     else:
         obj_names = [method_dict[m] for m in methods]
-    
+
     all_masks = []
     for obj_name in obj_names:
         mess = 'Computing masks for ' + obj_name
@@ -80,7 +80,7 @@ def compute_masks(image,
                 obj_masks += [obj.GetSmoothedMask(image,
                                                   call_model,
                                                   call_model_args)]
-        else: 
+        else:
             if obj_name == 'XRAI':
                 xrp = saliency.XRAIParameters()
                 xrp.algorithm = xrai_mode
@@ -94,8 +94,8 @@ def compute_masks(image,
                                                    level=xrai_level)]
                 all_masks += [obj_masks]
             else:
-                obj_masks = [obj.GetMask(image, 
-                                         call_model, 
+                obj_masks = [obj.GetMask(image,
+                                         call_model,
                                          call_model_args,
                                          batch_size=batch_size)]
                 if smooth:
@@ -104,12 +104,12 @@ def compute_masks(image,
                                                       call_model_args,
                                                       batch_size=batch_size)]
         if obj_name != 'XRAI':
-            gray_masks = [saliency.VisualizeImageGrayscale(m) 
+            gray_masks = [saliency.VisualizeImageGrayscale(m)
                           for m in obj_masks]
             all_masks += [gray_masks]
-        
+
         gc.collect()
-    
+
     return all_masks, obj_names
 
 
@@ -119,14 +119,14 @@ def panel_plot(images,
                show=True,
                save=False,
                save_dir='img/',
-               image_ids=None,
+               image_id=None,
                scale=1.5,
                xrai_cmap='gray',
                overlay_cmap='jet'):
     """Makes a single series of heatmaps for multiple images."""
     masks = deepcopy(masks)
     h = len(images)
-    
+
     # Setting up the plots differently for XRAI and everything else
     if method_name in ['XRAI', 'xrai']:
         w = len(masks[0]) + 1
@@ -137,20 +137,20 @@ def panel_plot(images,
         cmaps = [xrai_cmap] * 2
     else:
         w = len(masks[0]) + 3
-        fig, ax = plt.subplots(nrows=h, 
-                               ncols=w, 
+        fig, ax = plt.subplots(nrows=h,
+                               ncols=w,
                                figsize=(scale * w, scale * h))
-        titles = ['Activations', 'Activations (Smooth)', 
+        titles = ['Activations', 'Activations (Smooth)',
                   'Overlay', 'Overlay (Smooth)']
         cmaps = ['gray', 'gray', None, None]
         for i, image in enumerate(images):
             masks[i] += [tim.overlay_heatmap(image,
-                                          masks[i][0],
-                                          cmap=overlay_cmap)]
+                                             masks[i][0],
+                                             cmap=overlay_cmap)]
             masks[i] += [tim.overlay_heatmap(image,
                                              masks[i][1],
                                              cmap=overlay_cmap)]
-    
+
     # Filling the plots
     if len(images) < 2:
         image = images[0]
@@ -160,11 +160,11 @@ def panel_plot(images,
             tim.show_image(mask,
                            cmap=cmaps[j],
                            ax=ax[j+1])
-        
+
         titles = ['Original'] + titles
         for i, title in enumerate(titles):
             ax[i].set_title(title)
-        
+
     else:
         for i, image in enumerate(images):
             tim.show_image(image / 255,
@@ -173,22 +173,26 @@ def panel_plot(images,
                 tim.show_image(mask,
                                cmap=cmaps[j],
                                ax=ax[i, j+1])
-        
+
         titles = ['Original'] + titles
         for i, title in enumerate(titles):
             ax[0, i].set_title(title)
-    
+
     # Adjusting space between and around the subplots
     if method_name != 'XRAI':
         plt.suptitle(method_name)
-        
+
     plt.tight_layout()
     plt.subplots_adjust(wspace=0, hspace=0)
-    
+
     # Plotting and saving
+    if image_id:
+        save_path = save_dir + image_id + '_' + method_name + '.png'
+    else:
+        save_path = save_dir + method_name + '.png'
     if save:
-        plt.savefig(save_dir + method_name + '_panel.png')
+        plt.savefig(save_path)
     if show:
         plt.show()
-    
+
     return

@@ -1,91 +1,136 @@
-"""Makes Grad-CAM heatmaps for x-rays.
+"""Writes a report with the models' predictions for a set of new images.
 
-Mapping functions from Keras tutorial at 
-https://github.com/keras-team/keras-io/blob/master/examples/vision/grad_cam.py
+Notes:
+  1. 'img_dir' points to the directory holding the folder that holds the image
+    files for prediction. That folder should be named 'img/'.
+
 """
 import numpy as np
-import pandas as pd
 import tensorflow as tf
+import pickle
 import argparse
 import os
-import matplotlib.pyplot as plt
-import matplotlib.cm as cm
-
-from tensorflow import keras
-from multiprocessing import Pool
+import saliency.core as saliency
 
 from hamlet import attribution, models
+from hamlet.tools import image as tim
 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--img_dir',
+    parser.add_argument('--image_dir',
                         type=str,
-                        help='Path to the image files.')
-    parser.add_argument('--out_dir',
+                        help='Path to the folder holding the images for  \
+                        prediction.')
+    parser.add_argument('--output_dir',
                         type=str,
                         default=None,
-                        help='Path for saving the heatmaps.')
+                        help='Path where the script should dump the output \
+                        files. Writes to img_dir by default.')
+    parser.add_argument('--method',
+                        type=str,
+                        default='xrai',
+                        help='Attribution method to use.',
+                        choices=['gradient', 'blur', 'gig',
+                                 'ig', 'gradcam', 'xrai'])
     parser.add_argument('--mod_dir',
                         type=str,
-                        default='output/binary/checkpoints/training/',
-                        help='Path to the model checkpoint.')
-    parser.add_argument('--num_classes',
-                        type=int,
-                        default=1,
-                        help='Number of output classes. Must match the size \
-                        of the top layer in the model from mod_dir.')
-    parser.add_argument('--augment',
-                        action='store_true')
-    parser.add_argument('--multi_type',
+                        default='output/abnormal/checkpoints/training/',
+                        help='Path to the folder holding the trained \
+                        model.')
+    parser.add_argument('--model_flavor',
                         type=str,
-                        default='label',
-                        help='Kind of top layer to use for multiclass problems.\
-                        Only applies when --num_classes > 2.',
-                        choices=['label', 'class'])
-    parser.add_argument('--img_width',
+                        default='EfficientNetV2M',
+                        help='What pretrained model to use as the feature \
+                        extractor.')
+    parser.add_argument('--no_augmentation',
+                        action='store_true',
+                        help='Specifies that the models should be built with \
+                        the image augmentation layer.')
+    parser.add_argument('--image_dim',
                         type=int,
                         default=600,
-                        help='How wide the model expects the image to be. Must \
-                        match the dims for the checkpoint in --mod_dir.')
-    parser.add_argument('--write_original',
+                        help='Either dimension of the image to be passed \
+                        to the model.')
+    parser.add_argument('--single_GPU',
+                        action='store_true',
+                        help='Turns off distributed (multi-GPU) training')
+    parser.add_argument('--prefix',
                         type=str,
-                        default=True,
-                        help='Whether to rewrite the original images to \
-                        out_dir, only at the smaller size, if any rescaling \
-                        was done.')
-    parser.set_defaults(augment=False)
+                        default='',
+                        help='Prefix for the predictions file.')
+    parser.add_argument('--scale',
+                        type=float,
+                        default=10.0,
+                        help='Scaling parameter for figure size.')
+    parser.set_defaults(no_augmentation=False,
+                        single_GPU=False)
     args = parser.parse_args()
-    
-    IMG_DIR = args.img_dir
+
+    # Setting things up
+    AUGMENT = not args.no_augmentation
+    METHOD = [args.method]
     MOD_DIR = args.mod_dir
-    NUM_CLASSES = args.num_classes
-    AUGMENT = args.augment
-    MULTI_TYPE = args.multi_type
-    WRITE_ORIGINAL = args.write_original
-    IMG_HEIGHT, IMG_WIDTH = args.img_width, args.img_width
-    
-    if args.out_dir:
-            OUT_DIR = args.out_dir
+    MODEL_FLAVOR = args.model_flavor
+    IMG_DIR = args.image_dir
+    IMG_DIM = args.image_dim
+    OUT_DIR = IMG_DIR
+    DISTRIBUTED = not args.single_GPU
+    PREFIX = args.prefix
+    SCALE = args.scale
+    if args.output_dir is not None:
+        OUT_DIR = args.output_dir
+
+    # Setting training strategy
+    if DISTRIBUTED:
+        print('Using multiple GPUs.\n')
+        cdo = tf.distribute.HierarchicalCopyAllReduce()
+        strategy = tf.distribute.MirroredStrategy(cross_device_ops=cdo)
     else:
-        OUT_DIR = IMG_DIR
-    
+        strategy = tf.distribute.get_strategy()
+
+    # Loading the data
+    test_files = os.listdir(IMG_DIR)
+    test_ids = [f[:-4] for f in test_files]
+    test_ds = tf.keras.preprocessing.image_dataset_from_directory(
+      IMG_DIR,
+      labels=None,
+      shuffle=False,
+      image_size=(IMG_DIM, IMG_DIM)
+    )
+
+    # Loading the images
+    im_files = os.listdir(IMG_DIR)
+    im_paths = [IMG_DIR + s for s in im_files]
+
     # Loading the trained model
-    model = models.EfficientNet(num_classes=NUM_CLASSES,
-                        multi_type=MULTI_TYPE,
-                        img_height=IMG_HEIGHT,
-                        img_width=IMG_WIDTH,
-                        augmentation=AUGMENT)
-    model.load_weights(MOD_DIR)
-    model.layers[-1].activation = None
-    last_conv_layer_name = 'top_conv'
-    
-    # Running the heatmaps
-    files_to_map = os.listdir(IMG_DIR)
-    for f in files_to_map:
-        write_gradcam(img_file=f,
-                      img_dir=IMG_DIR, 
-                      out_dir=OUT_DIR, 
-                      model=model,
-                      conv_layer=last_conv_layer_name,
-                      write_original=WRITE_ORIGINAL)
+    with strategy.scope():
+        mod = models.EfficientNet(num_classes=1,
+                                  img_height=IMG_DIM,
+                                  img_width=IMG_DIM,
+                                  augmentation=AUGMENT,
+                                  model_flavor=MODEL_FLAVOR)
+        mod.load_weights(MOD_DIR)
+        conv_layer = mod.get_layer('top_conv')
+        mod = tf.keras.models.Model([mod.inputs],
+                                    [conv_layer.output, mod.output])
+        call_model_args = {'class_id': 0,
+                           'model': mod}
+
+        # Trying the single-image plot
+        for im_path in im_paths:
+            im = tim.load_image(im_path, (IMG_DIM, IMG_DIM))
+            mask, method_name = attribution.compute_masks(
+                                            image=im,
+                                            methods=METHOD,
+                                            call_model_args=call_model_args,
+                                            batch_size=1
+            )
+            attribution.panel_plot(images=[im],
+                                   masks=mask,
+                                   method_name=method_name,
+                                   save_dir=OUT_DIR,
+                                   image_id=im_path[:-4],
+                                   show=False,
+                                   save=True,
+                                   scale=SCALE)
