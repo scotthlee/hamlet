@@ -63,8 +63,13 @@ if __name__ == '__main__':
                         type=float,
                         default=10.0,
                         help='Scaling parameter for figure size.')
+    parser.add_argument('--smooth',
+                        action='store_true',
+                        help='Whether to generated heatmaps with smooth \
+                        activations as well as normal ones.')
     parser.set_defaults(no_augmentation=False,
-                        single_GPU=False)
+                        single_GPU=False,
+                        smooth=False)
     args = parser.parse_args()
 
     # Setting things up
@@ -78,6 +83,7 @@ if __name__ == '__main__':
     DISTRIBUTED = not args.single_GPU
     PREFIX = args.prefix
     SCALE = args.scale
+    SMOOTH = args.smooth
     if args.output_dir is not None:
         OUT_DIR = args.output_dir
 
@@ -103,7 +109,6 @@ test_ds = tf.keras.preprocessing.image_dataset_from_directory(
 im_files = os.listdir(IMG_DIR)
 im_paths = [IMG_DIR + s for s in im_files]
 
-
 # Loading the trained model
 with strategy.scope():
     mod = models.EfficientNet(num_classes=1,
@@ -126,12 +131,14 @@ with strategy.scope():
                                         image=im,
                                         methods=[METHOD],
                                         call_model_args=call_model_args,
-                                        batch_size=1)
+                                        batch_size=1,
+                                        smooth=SMOOTH)
         attribution.panel_plot(images=[im],
                                masks=mask,
                                method_name=method_name[0],
                                save_dir=OUT_DIR,
                                image_id=im_files[i][:-4],
+                               smoothed=SMOOTH,
                                show=False,
                                save=True,
                                scale=SCALE)

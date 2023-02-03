@@ -116,6 +116,7 @@ def compute_masks(image,
 def panel_plot(images,
                masks,
                method_name='GradCam',
+               smoothed=True,
                show=True,
                save=False,
                save_dir='img/',
@@ -136,20 +137,26 @@ def panel_plot(images,
         titles = ['XRAI', 'XRAI (Top regions)']
         cmaps = [xrai_cmap] * 2
     else:
-        w = len(masks[0]) + 3
+        w = len(masks[0]) + 2
+        if smoothed:
+            w += 1
+            titles = ['Activations', 'Activations (Smooth)',
+                      'Overlay', 'Overlay (Smooth)']
+            cmaps = ['gray', 'gray', None, None]
+        else:
+            titles = ['Activations', 'Overlay']
+            cmaps = ['gray', None]
         fig, ax = plt.subplots(nrows=h,
                                ncols=w,
                                figsize=(scale * w, scale * h))
-        titles = ['Activations', 'Activations (Smooth)',
-                  'Overlay', 'Overlay (Smooth)']
-        cmaps = ['gray', 'gray', None, None]
         for i, image in enumerate(images):
             masks[i] += [tim.overlay_heatmap(image,
                                              masks[i][0],
                                              cmap=overlay_cmap)]
-            masks[i] += [tim.overlay_heatmap(image,
-                                             masks[i][1],
-                                             cmap=overlay_cmap)]
+            if smoothed:
+                masks[i] += [tim.overlay_heatmap(image,
+                                                 masks[i][1],
+                                                 cmap=overlay_cmap)]
 
     # Filling the plots
     if len(images) < 2:
