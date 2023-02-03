@@ -69,7 +69,7 @@ if __name__ == '__main__':
 
     # Setting things up
     AUGMENT = not args.no_augmentation
-    METHOD = [args.method]
+    METHOD = args.method
     MOD_DIR = args.mod_dir
     MODEL_FLAVOR = args.model_flavor
     IMG_DIR = args.image_dir
@@ -81,56 +81,57 @@ if __name__ == '__main__':
     if args.output_dir is not None:
         OUT_DIR = args.output_dir
 
-    # Setting training strategy
-    if DISTRIBUTED:
-        print('Using multiple GPUs.\n')
-        cdo = tf.distribute.HierarchicalCopyAllReduce()
-        strategy = tf.distribute.MirroredStrategy(cross_device_ops=cdo)
-    else:
-        strategy = tf.distribute.get_strategy()
+# Setting training strategy
+if DISTRIBUTED:
+    print('Using multiple GPUs.\n')
+    cdo = tf.distribute.HierarchicalCopyAllReduce()
+    strategy = tf.distribute.MirroredStrategy(cross_device_ops=cdo)
+else:
+    strategy = tf.distribute.get_strategy()
 
-    # Loading the data
-    test_files = os.listdir(IMG_DIR)
-    test_ids = [f[:-4] for f in test_files]
-    test_ds = tf.keras.preprocessing.image_dataset_from_directory(
-      IMG_DIR,
-      labels=None,
-      shuffle=False,
-      image_size=(IMG_DIM, IMG_DIM)
-    )
+# Loading the data
+test_files = os.listdir(IMG_DIR)
+test_ids = [f[:-4] for f in test_files]
+test_ds = tf.keras.preprocessing.image_dataset_from_directory(
+  IMG_DIR,
+  labels=None,
+  shuffle=False,
+  image_size=(IMG_DIM, IMG_DIM)
+)
 
-    # Loading the images
-    im_files = os.listdir(IMG_DIR)
-    im_paths = [IMG_DIR + s for s in im_files]
+# Loading the images
+im_files = os.listdir(IMG_DIR)
+im_paths = [IMG_DIR + s for s in im_files]
 
-    # Loading the trained model
-    with strategy.scope():
-        mod = models.EfficientNet(num_classes=1,
-                                  img_height=IMG_DIM,
-                                  img_width=IMG_DIM,
-                                  augmentation=AUGMENT,
-                                  model_flavor=MODEL_FLAVOR)
-        mod.load_weights(MOD_DIR)
-        conv_layer = mod.get_layer('top_conv')
-        mod = tf.keras.models.Model([mod.inputs],
-                                    [conv_layer.output, mod.output])
-        call_model_args = {'class_id': 0,
-                           'model': mod}
 
-        # Trying the single-image plot
-        for im_path in im_paths:
-            im = tim.load_image(im_path, (IMG_DIM, IMG_DIM))
-            mask, method_name = attribution.compute_masks(
-                                            image=im,
-                                            methods=METHOD,
-                                            call_model_args=call_model_args,
-                                            batch_size=1
-            )
-            attribution.panel_plot(images=[im],
-                                   masks=mask,
-                                   method_name=method_name,
-                                   save_dir=OUT_DIR,
-                                   image_id=im_path[:-4],
-                                   show=False,
-                                   save=True,
-                                   scale=SCALE)
+# Loading the trained model
+with strategy.scope():
+    mod = models.EfficientNet(num_classes=1,
+                              img_height=IMG_DIM,
+                              img_width=IMG_DIM,
+                              augmentation=AUGMENT,
+                              model_flavor=MODEL_FLAVOR)
+    mod.load_weights(MOD_DIR)
+    conv_layer = mod.get_layer('top_conv')
+    mod = tf.keras.models.Model([mod.inputs],
+                                [conv_layer.output, mod.output])
+    call_model_args = {'class_id': 0,
+                       'model': mod}
+
+    # Trying the single-image plot
+    for i, im_path in enumerate(im_paths):
+        print('Making a ' + METHOD + ' heatmap for ' + im_files[i])
+        im = tim.load_image(im_path, (IMG_DIM, IMG_DIM))
+        mask, method_name = attribution.compute_masks(
+                                        image=im,
+                                        methods=[METHOD],
+                                        call_model_args=call_model_args,
+                                        batch_size=1)
+        attribution.panel_plot(images=[im],
+                               masks=mask,
+                               method_name=method_name[0],
+                               save_dir=OUT_DIR,
+                               image_id=im_files[i][:-4],
+                               show=False,
+                               save=True,
+                               scale=SCALE)
