@@ -120,7 +120,7 @@ if __name__ == '__main__':
         assert ID_COL in current_data.columns.values, no_id
 
     # Loading the data
-    test_files = os.listdir(IMG_DIR)
+    test_files = os.listdir(IMG_DIR + 'img/')
     test_ids = [f[:-4] for f in test_files]
     test_ds = tf.keras.preprocessing.image_dataset_from_directory(
       IMG_DIR,
@@ -131,7 +131,7 @@ if __name__ == '__main__':
     )
 
     preds_df = pd.DataFrame(test_ids, columns=[ID_COL])
-
+    
     # Loading the trained model
     with strategy.scope():
         if FIND_MOD_DIR:

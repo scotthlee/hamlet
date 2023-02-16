@@ -96,17 +96,16 @@ if __name__ == '__main__':
         strategy = tf.distribute.get_strategy()
 
     # Loading the data
-    test_files = os.listdir(IMG_DIR)
-    test_ids = [f[:-4] for f in test_files]
     test_ds = tf.keras.preprocessing.image_dataset_from_directory(
-      IMG_DIR,
+      IMG_DIR[:-4],
       labels=None,
       shuffle=False,
       image_size=(IMG_DIM, IMG_DIM)
     )
-
+    
     # Loading the images
     im_files = os.listdir(IMG_DIR)
+    im_ids = [f[:-4] for f in im_files]
     im_paths = [IMG_DIR + s for s in im_files]
 
     # Loading the trained model
