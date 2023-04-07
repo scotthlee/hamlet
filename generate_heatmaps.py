@@ -97,7 +97,7 @@ if __name__ == '__main__':
 
     # Loading the data
     test_ds = tf.keras.preprocessing.image_dataset_from_directory(
-      IMG_DIR[:-4],
+      IMG_DIR,
       labels=None,
       shuffle=False,
       image_size=(IMG_DIM, IMG_DIM)
