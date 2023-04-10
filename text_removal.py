@@ -32,16 +32,16 @@ if __name__ == '__main__':
                         action='store_true')
     parser.set_defaults(no_multiprocessing=False)
     args = parser.parse_args()
-    
+
     # Setting globals
     IMG_DIR = args.img_dir
     TEXT_DIR = args.text_dir
     NUM_WORDS = args.num_words
     USE_MULTIPROCESSING =  not args.no_multiprocessing
-    
+
     # Importing the data
     files = os.listdir(IMG_DIR)
-    
+
     # Checking the files
     if USE_MULTIPROCESSING:
         with Pool() as p:
@@ -49,7 +49,7 @@ if __name__ == '__main__':
             res1 = p.starmap(check_text, input)
             p.close()
             p.join()
-        
+
         # Moving the files with text
         with_text = np.where(res1)[0]
         to_move = [files[i] for i in with_text]
@@ -59,7 +59,7 @@ if __name__ == '__main__':
             p.close()
             p.join()
     else:
+        res1 = [check_text(IMG_DIR + f, NUM_WORDS) for f in files]
         with_text = np.where(res1)[0]
         to_move = [files[i] for i in with_text]
-        res1 = [check_text(IMG_DIR + f, NUM_WORDS) for f in files]
         res2 = [os.rename(IMG_DIR + f, TEXT_DIR + f) for f in to_move]
