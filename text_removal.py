@@ -28,9 +28,12 @@ if __name__ == '__main__':
                         type=int,
                         default=3,
                         help='maximum allowable number of words per image')
+    parser.add_argument('--convert_to_grayscale',
+                        action='store_true')
     parser.add_argument('--no_multiprocessing',
                         action='store_true')
-    parser.set_defaults(no_multiprocessing=False)
+    parser.set_defaults(no_multiprocessing=False,
+                        convert_to_grayscale=False)
     args = parser.parse_args()
 
     # Setting globals
@@ -38,6 +41,7 @@ if __name__ == '__main__':
     TEXT_DIR = args.text_dir
     NUM_WORDS = args.num_words
     USE_MULTIPROCESSING =  not args.no_multiprocessing
+    GRAY = args.convert_to_grayscale
 
     # Importing the data
     files = os.listdir(IMG_DIR)
@@ -45,7 +49,7 @@ if __name__ == '__main__':
     # Checking the files
     if USE_MULTIPROCESSING:
         with Pool() as p:
-            input = [(IMG_DIR + f, NUM_WORDS) for f in files]
+            input = [(IMG_DIR + f, NUM_WORDS, GRAY) for f in files]
             res1 = p.starmap(check_text, input)
             p.close()
             p.join()
@@ -59,7 +63,7 @@ if __name__ == '__main__':
             p.close()
             p.join()
     else:
-        res1 = [check_text(IMG_DIR + f, NUM_WORDS) for f in files]
+        res1 = [check_text(IMG_DIR + f, NUM_WORDS, GRAY) for f in files]
         with_text = np.where(res1)[0]
         to_move = [files[i] for i in with_text]
         res2 = [os.rename(IMG_DIR + f, TEXT_DIR + f) for f in to_move]

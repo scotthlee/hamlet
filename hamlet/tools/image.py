@@ -124,7 +124,7 @@ def flip_image(img_name, img_dir):
     return
 
 
-def check_text(file_path, lim=3):
+def check_text(file_path, lim=3, convert_to_grayscale=False):
     """Checks an image for burned-in text.
 
     Parameters
@@ -140,6 +140,8 @@ def check_text(file_path, lim=3):
     True if the image has more than lim words, else False.
     """
     img = cv2.imread(file_path)
+    if convert_to_grayscale:
+        img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
     tess = pytesseract.image_to_data(img, output_type=Output.DICT)
     words = tess['text']
     if np.any([len(w) > lim for w in words]):
