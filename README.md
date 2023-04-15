@@ -1,4 +1,6 @@
 # Harnessing Machine Learning to Eliminate Tuberculosis (HaMLET)
+[![DOI](https://zenodo.org/badge/369534348.svg)](https://zenodo.org/badge/latestdoi/369534348)
+
 
 ## Overview
 This repository holds code for the HaMLET project, an internal CDC effort to use computer vision models to improve the quality of overseas health screenings for immigrants and refugees seeking entry to the U.S.. The project is the result of a collaboration between the Immigrant, Migrant, and Refugee Health Branch ([IMRHB](https://www.cdc.gov/ncezid/dgmq/focus-areas/irmh.html)) in the Division of Global Migration and Quarantine([DGMQ](https://www.cdc.gov/ncezid/dgmq/index.html)) and the Office of the Director in the Center for Surveillance, Epidemiology, and Laboratory Services ([CSELS](https://www.cdc.gov/csels/index.html)).
