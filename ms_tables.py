@@ -120,7 +120,6 @@ tab_cols = [
 tab_names = [
     'Abnormal',
     'Abnormal (Suggestive of TB)',
-    'TB Disease',
     'Infiltrate or Consolidation',
     'Reticular Findings',
     'Cavitary Lesion',
