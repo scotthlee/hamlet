@@ -62,7 +62,8 @@ smears = df[['smear_1', 'smear_2', 'smear_3']].sum(1) > 0
 df['smear'] = smears.astype(np.uint8)
 cultures = df[['culture_1', 'culture_2', 'culture_3']].sum(1) > 0
 df['culture'] = cultures.astype(np.uint8)
-df['tb_disease'] = df.class_a.fillna(0)
+df['tb_now'] = df.class_a.fillna(0)
+df['tb_prior'] = np.array(df.smear + df.culture > 0, dtype=np.uint8)
 
 # Adding a variable for the data source
 source = np.array([''] * df.shape[0], dtype='U16')
@@ -78,6 +79,7 @@ train = df[df.split == 'train']
 val = df[df.split == 'val']
 test = df[df.split == 'test']
 splits = [df, train, val, test]
+split_names = ['All', 'Train', 'Validate', 'Test']
 
 # Making the tables, starting with demographics first
 dem_tabs = []
@@ -89,7 +91,6 @@ tab_names = [
     'Age Group', 'Sex', 'Data Source',
     'Exam Region', 'Exam Sub-Region'
 ]
-split_names = ['All', 'Train', 'Validate', 'Test']
 var_levels = [np.unique(df[v]) for v in tab_cols]
 for j, s in enumerate(splits):
     tabs = []
@@ -109,16 +110,16 @@ dem_tabs.to_csv(data_dir + 'analysis/dem_tabs.csv')
 # And now the TB-related table
 tb_tabs = []
 tab_cols = [
-    'abnormal', 'abnormal_tb', 'tb_disease',
-    'infiltrate', 'reticular', 'cavity',
-    'nodule', 'pleural_effusion', 'hilar_adenopathy',
-    'miliary', 'linear_opacity', 'discrete_nodule',
-    'volume_loss', 'pleural_reaction', 'other'
+    'abnormal', 'abnormal_tb', 'infiltrate',
+    'reticular', 'cavity', 'nodule',
+    'pleural_effusion', 'hilar_adenopathy', 'miliary',
+    'linear_opacity', 'discrete_nodule', 'volume_loss',
+    'pleural_reaction', 'other', 'tb_prior',
+    'tb_now',
 ]
 tab_names = [
     'Abnormal',
     'Abnormal (Suggestive of TB)',
-    'TB Disease',
     'Infiltrate or Consolidation',
     'Reticular Findings',
     'Cavitary Lesion',
@@ -127,7 +128,7 @@ tab_names = [
     'Miliary Findings', 'Discrete Linear Opacity',
     'Discerete Nodule(s) Without Calcification',
     'Volume Loss or Retraction', 'Irregular Thick Pleural Reaction',
-    'Other'
+    'Other', 'TB at Prior Exam', 'TB at Current Exam'
 ]
 var_levels = [np.unique(df[v]) for v in tab_cols]
 for j, s in enumerate(splits):
@@ -142,7 +143,6 @@ for j, s in enumerate(splits):
 
 tb_tabs = pd.concat(tb_tabs, axis=1)
 tb_tabs.to_csv(data_dir + 'analysis/tb_tabs.csv')
-
 
 # Loading the external datasets;
 # TO DO: refactor generate_predictions so it can write to an existing 
