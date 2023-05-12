@@ -62,7 +62,9 @@ def convert_to_png(file,
                    prefix=None,
                    shape=1024,
                    write_image=True,
-                   bff=None,
+                   error_report=True,
+                   error_report_filename='bad_files.csv',
+                   er_dir=None,
                    use_modality_lut=False,
                    use_voi_lut=True):
     """Extracts the image in a DICOM file to .png.
@@ -80,14 +82,17 @@ def convert_to_png(file,
     shape : int, default=1024
         Width in pixels of the image after export. For no rescaling, set to
         None.
+    error_report : bool, default=True
+        Whether to document image extraction errors in a CSV file.
+    error_report_filename : str, default='bad_files.csv'
+        Name for the error report, if generated.
+    er_dir : str, default=None
+        Where to save the error report. Unless this is specified, the report 
+        will be saved to img_dir.
     use_modality_lut : bool, default=False
         Whether to apply the modality LUT from the DICOM file to the image
     use_voi_lut : bool, default=True
         Whether to apply the VOI LUT from the DICOM file to the image
-    bff : str, default=None
-        A bad files file. This is a CSV for making note of DICOM files that
-        have problems, like missing pixel data or unsupported transfer syntax
-        IDs. Should be the full path to the file.
 
     Returns
     ----------
@@ -96,11 +101,14 @@ def convert_to_png(file,
     # Read in the DICOM file and check it for basic problems
     ds = dcmread(file_dir + file, force=True)
     good_file, errors = good_dicom(ds)
-
+    
     if not good_file:
-        if bff:
+        if error_report:
+            if not er_dir:
+                er_dir = img_dir
+            efn = error_report_filename
             report = [prefix, file] + errors + [0, 0]
-            pd.DataFrame(report).transpose().to_csv(bff,
+            pd.DataFrame(report).transpose().to_csv(er_dir + efn,
                                                     mode='a',
                                                     index=False,
                                                     header=False)
