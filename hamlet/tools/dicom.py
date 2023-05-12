@@ -87,7 +87,7 @@ def convert_to_png(file,
     error_report_filename : str, default='bad_files.csv'
         Name for the error report, if generated.
     er_dir : str, default=None
-        Where to save the error report. Unless this is specified, the report 
+        Where to save the error report. Unless this is specified, the report
         will be saved to img_dir.
     use_modality_lut : bool, default=False
         Whether to apply the modality LUT from the DICOM file to the image
@@ -101,12 +101,12 @@ def convert_to_png(file,
     # Read in the DICOM file and check it for basic problems
     ds = dcmread(file_dir + file, force=True)
     good_file, errors = good_dicom(ds)
-    
+
+    er_dir = img_dir if not er_dir else er_dir
+    efn = error_report_filename
+
     if not good_file:
         if error_report:
-            if not er_dir:
-                er_dir = img_dir
-            efn = error_report_filename
             report = [prefix, file] + errors + [0, 0]
             pd.DataFrame(report).transpose().to_csv(er_dir + efn,
                                                     mode='a',
@@ -159,20 +159,21 @@ def convert_to_png(file,
                 image = np.invert(image)
             else:
                 image = np.invert(image[:, :, :-1])
-            if bff:
+            if error_report:
                 report = [prefix, file] + [0, 0, 0, 0] + [1, 0]
-                pd.DataFrame(report).transpose().to_csv(bff,
+                pd.DataFrame(report).transpose().to_csv(er_dir + efn,
                                                         mode='a',
                                                         index=False,
                                                         header=False)
 
         # Final check for images that are too bright or dark
         if not good_brightness(image):
-            report = [prefix, file] + [0, 0, 0, 0] + [0, 1]
-            pd.DataFrame(report).transpose().to_csv(bff,
-                                                    mode='a',
-                                                    index=False,
-                                                    header=False)
+            if error_report:
+                report = [prefix, file] + [0, 0, 0, 0] + [0, 1]
+                pd.DataFrame(report).transpose().to_csv(er_dir + efn,
+                                                        mode='a',
+                                                        index=False,
+                                                        header=False)
             return
         else:
             if write_image:
