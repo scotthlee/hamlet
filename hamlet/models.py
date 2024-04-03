@@ -130,7 +130,8 @@ def EfficientNet(num_classes=1,
     metrics = [auc]
     
     # Setting the optimizer and compiling
-    opt = optimizers.Adam(learning_rate=learning_rate)
+    #opt = optimizers.Adam(learning_rate=learning_rate)
+    opt = tf.keras.optimizers.legacy.Adam(learning_rate=learning_rate)
     model.compile(loss=loss, optimizer=opt, metrics=metrics)
     
     return model
