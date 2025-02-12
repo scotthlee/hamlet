@@ -131,9 +131,8 @@ published through the [CDC web site](http://www.cdc.gov).
 
 ## Additional Standard Notices
 Please refer to [CDC's Template Repository](https://github.com/CDCgov/template)
-for more information about [contributing to this repository](https://github.com/CDCgov/template/blob/master/CONTRIBUTING.md),
-[public domain notices and disclaimers](https://github.com/CDCgov/template/blob/master/DISCLAIMER.md),
-and [code of conduct](https://github.com/CDCgov/template/blob/master/code-of-conduct.md).
+for more information about [contributing to this repository](https://github.com/CDCgov/template/blob/master/CONTRIBUTING.md), and
+[public domain notices and disclaimers](https://github.com/CDCgov/template/blob/master/DISCLAIMER.md).
 
 
 **General disclaimer** This repository was created for use by CDC programs to collaborate on public health related projects in support of the [CDC mission](https://www.cdc.gov/about/organization/mission.htm).  Github is not hosted by the CDC, but is a third party website used by CDC and its partners to share information and collaborate on software.
